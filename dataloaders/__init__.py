@@ -3,75 +3,75 @@ from copy import deepcopy
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 
 from datasets.index_dataset import IndexDataset
 
+
 class FastJointSampler:
     def __init__(self, dataset1, dataset2, model, samp_dist, batch_size=256, semi_supervised=False):
-        '''
-        Returns an object that returns a batch of
-        (x1, y1, x2, y2) that satisfy the sampling distribution
+        """
+        Returns an object that returns a batch of (x1, y1, x2, y2) that satisfy the sampling distribution
         provided i.e P(y1, y2)
+
         Args:
-            dataset1    : a torch dataset object whose label
-                        will be used for MU
-            dataset2    : a torch dataset object whose label
-                        will not be used for MU
-            prototypes  : validation set, a torch dataset object
-            samp_dist   : a KXK numpy matrix representing P(y1, y2)
-            SSL         : if the second dataset needs the pseudo-labels
-                          to be generated else use the targets in the datasets
-                          to keep the sample in the dataset
-            batch_size  : size of the batch to be returned
-        '''
+            dataset1 (Dataset): A torch dataset object whose label will be used for MU.
+            dataset2 (Dataset): A torch dataset object whose label will not be used for MU.
+            model: The model needed to generate pseudo-labels.
+            samp_dist (numpy.ndarray): A KXK numpy matrix representing P(y1, y2).
+            batch_size (int): Size of the batch to be returned.
+            semi_supervised (bool): If the second dataset needs the pseudo-labels to be generated,
+                                    else use the targets in the datasets to keep the sample in the dataset.
+        """
         super(FastJointSampler, self).__init__()
 
-        self.semiSupervised = semi_supervised
+        self.semi_supervised = semi_supervised
         self.dataset1 = deepcopy(dataset1)
         self.dataset2 = deepcopy(dataset2)
         self.batch_size = batch_size
 
-        # model is needed to generate pseudo-labels
         self.model = model
 
         self.sampling_distribution = samp_dist
         self.num_classes = samp_dist.shape[0]
-        
-        # have a small epsilon for non zero sampling probability 
-        # since torch weighted sampler can't handle zero Weights
-        epsilon = 1.0/(self.num_classes**3)
+
+        epsilon = 1.0 / (self.num_classes ** 3)
         self.p_y1 = np.sum(self.sampling_distribution + epsilon, axis=1)
         self.p_y2_given_y1 = ((self.sampling_distribution.T + epsilon) / (self.p_y1 + epsilon)).T
 
-        # update the pseudolabel of the unlabeled dataset for SemiSL
-        # and get the priors for both the datasets
-        if self.semiSupervised:
-            self.updatePseudolabel()
-        self.priorUpdate()
+        if self.semi_supervised:
+            self.update_pseudo_label()
+        self.prior_update()
 
-        # create a simple dataset of indexes and targetsso that
-        # we don't have to create multiple copies of the same 
-        # dataset for y2|y1 data loaders
-        self.dataset2_idx_dataset = IndexDataset(self.dataset2)
+        self.dataset2_idx_dataset = IndexDataset(self.dataset2.targets)
 
-        self.y1_loader, self.y1_iter, self.y2_given_y1_loader_dict, self.y2_given_y1_iter_dict = self.get_loaders()
-        print("All loaders are loaded...")
+        (
+            self.y1_loader,
+            self.y1_iter,
+            self.y2_given_y1_loader_dict,
+            self.y2_given_y1_iter_dict,
+        ) = self.get_loaders()
 
-    def priorUpdate(self):
-        total_y1_samples = len(self.dataset1.targets)
-        total_y2_samples = len(self.dataset2.targets)
 
-        prior1 = [Counter(self.dataset1.targets)[i] / total_y1_samples for i in range(self.num_classes)]
-        prior2 = [Counter(self.dataset2.targets)[i] / total_y2_samples for i in range(self.num_classes)]
+    def prior_update(self):
+        """
+        Updates the prior probabilities for both datasets based on their targets.
+        """
+        num_y1 = len(self.dataset1.targets)
+        num_y2 = len(self.dataset2.targets)
 
-        self.dataset1.prior1, self.dataset2.prior2 = prior1, prior2
+        prior1 = [Counter(self.dataset1.targets)[i] / num_y1 for i in range(self.num_classes)]
+        prior2 = [Counter(self.dataset2.targets)[i] / num_y2 for i in range(self.num_classes)]
+
+        self.dataset1.prior, self.dataset2.prior = prior1, prior2
         return
 
-    def updatePseudolabel(self):
+    def update_pseudo_label(self):
+        """
+        Updates the pseudo-labels for the unlabeled dataset using the provided model.
+        """
         predictions = []
-        dataloader2 = DataLoader(self.dataset2, batch_size=1024, num_workers=8, shuffle=False)
+        dataloader2 = DataLoader(self.dataset2, batch_size=self.batch_size, num_workers=8, shuffle=False)
         self.model.eval()
 
         with torch.no_grad():
@@ -80,12 +80,13 @@ class FastJointSampler:
                 preds = preds.cpu().tolist()
                 predictions += preds
 
-        # we add an attribute target to the second dataset and 
-        # set it to the pseudo-labels
         self.dataset2.targets = predictions
         return
 
     def get_lb_batch(self):
+        """
+        Gets a batch from the labeled dataset (dataset1).
+        """
         try:
             return self.y1_iter.next()
         except:
@@ -93,6 +94,9 @@ class FastJointSampler:
             return self.y1_iter.next()
 
     def get_y2_given_y1_sample(self, y1):
+        """
+        Gets a sample from the unlabeled dataset (dataset2) given a y1 value.
+        """
         try:
             return self.y2_given_y1_iter_dict[y1].next()
         except:
@@ -100,11 +104,14 @@ class FastJointSampler:
             return self.y2_given_y1_iter_dict[y1].next()
 
     def get_batch(self):
+        """
+        Gets a batch containing (x1, y1, x2, y2).
+        """
         X2, Y2 = [], []
         X1, Y1 = self.get_lb_batch()
 
         for i in Y1.numpy().tolist():
-            x2_idx, y2 = next(self.y2_given_y1_iter_dict[f'{i}'])
+            x2_idx, y2 = next(self.y2_given_y1_iter_dict[f"{i}"])
             x2, y2_ = self.dataset2[x2_idx]
             assert y2 == y2_
             X2.append(x2)
@@ -115,14 +122,18 @@ class FastJointSampler:
         return X1, Y1, X2, Y2
 
     def get_loaders(self):
-        y1_wts = [float(self.p_y1[y1] / self.prior1[y1]) for y1 in self.dataset1.targets]
+        """
+        Generates and returns data loaders for both labeled and unlabeled datasets.
+        """
+        y1_wts = [float(self.p_y1[y1] / self.dataset1.prior[y1]) for y1 in self.dataset1.targets]
 
-        y2_given_y1_wts = {i: [float(self.p_y2_given_y1[y1, y2] / self.prior2[y2])
-                               for y2 in self.dataset2.targets] for i, y1 in enumerate(range(self.num_classes))}
+        y2_given_y1_wts = {
+            i: [float(self.p_y2_given_y1[y1, y2] / self.dataset2.prior[y2]) for y2 in self.dataset2.targets]
+            for i, y1 in enumerate(range(self.num_classes))
+        }
 
         sampler1 = WeightedRandomSampler(weights=y1_wts, num_samples=len(self.dataset1.targets), replacement=True)
-        if self.random:
-            sampler1 = None
+
         y1_loader = DataLoader(self.dataset1, batch_size=self.batch_size, num_workers=8, sampler=sampler1)
         y1_iter = iter(y1_loader)
 
@@ -133,13 +144,13 @@ class FastJointSampler:
             print("generating loader : ", i)
             sampler = WeightedRandomSampler(weights=y2_given_y1_wts[i], num_samples=len(self.dataset2.targets),
                                             replacement=True)
-            if self.random:
-                sampler = None
+
             loader = DataLoader(self.dataset2_idx_dataset, batch_size=None, num_workers=0, sampler=sampler)
             y2_given_y1_loader_dict.update({f"{i}": loader})
             y2_given_y1_iter_dict.update({f"{i}": iter(loader)})
 
         return y1_loader, y1_iter, y2_given_y1_loader_dict, y2_given_y1_iter_dict
 
+
 if __name__ == "__main__":
-    print('work in progress')
+    print("work in progress")
