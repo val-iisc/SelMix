@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from datasets.index_dataset import IndexDataset
 
 class FastJointSampler:
-    def __init__(self, dataset1, dataset2, model, samp_dist, verbose=False, batch_size=256, random=False):
+    def __init__(self, dataset1, dataset2, model, samp_dist, batch_size=256, semi_supervised=False):
         '''
         Returns an object that returns a batch of
         (x1, y1, x2, y2) that satisfy the sampling distribution
@@ -20,7 +20,6 @@ class FastJointSampler:
             dataset2    : a torch dataset object whose label
                         will not be used for MU
             prototypes  : validation set, a torch dataset object
-            model       : a torch classifier model
             samp_dist   : a KXK numpy matrix representing P(y1, y2)
             SSL         : if the second dataset needs the pseudo-labels
                           to be generated else use the targets in the datasets
@@ -29,70 +28,62 @@ class FastJointSampler:
         '''
         super(FastJointSampler, self).__init__()
 
-        self.random = random
+        self.semiSupervised = semi_supervised
         self.dataset1 = deepcopy(dataset1)
         self.dataset2 = deepcopy(dataset2)
         self.batch_size = batch_size
 
+        # model is needed to generate pseudo-labels
         self.model = model
-        self.model.eval()
 
         self.sampling_distribution = samp_dist
-        epsilon = 1e-8
+        self.num_classes = samp_dist.shape[0]
+        
+        # have a small epsilon for non zero sampling probability 
+        # since torch weighted sampler can't handle zero Weights
+        epsilon = 1.0/(self.num_classes**3)
         self.p_y1 = np.sum(self.sampling_distribution + epsilon, axis=1)
         self.p_y2_given_y1 = ((self.sampling_distribution.T + epsilon) / (self.p_y1 + epsilon)).T
 
-        self.num_classes = samp_dist.shape[0]
+        # update the pseudolabel of the unlabeled dataset for SemiSL
+        # and get the priors for both the datasets
+        if self.semiSupervised:
+            self.updatePseudolabel()
+        self.priorUpdate()
 
-        self.dataset2.targets = self.inference()
-        self.dataset2_idx_dataset = IndexDataset(self.dataset2.targets)
-        self.verbose = verbose
-
-        if self.verbose:
-            self.stats()
+        # create a simple dataset of indexes and targetsso that
+        # we don't have to create multiple copies of the same 
+        # dataset for y2|y1 data loaders
+        self.dataset2_idx_dataset = IndexDataset(self.dataset2)
 
         self.y1_loader, self.y1_iter, self.y2_given_y1_loader_dict, self.y2_given_y1_iter_dict = self.get_loaders()
         print("All loaders are loaded...")
 
-    def stats(self):
+    def priorUpdate(self):
         total_y1_samples = len(self.dataset1.targets)
         total_y2_samples = len(self.dataset2.targets)
-
-        samples_per_class1 = [Counter(self.dataset1.targets)[i] for i in range(self.num_classes)]
-        samples_per_class2 = [Counter(self.dataset2.targets)[i] for i in range(self.num_classes)]
 
         prior1 = [Counter(self.dataset1.targets)[i] / total_y1_samples for i in range(self.num_classes)]
         prior2 = [Counter(self.dataset2.targets)[i] / total_y2_samples for i in range(self.num_classes)]
 
-        print("=============================================")
-        print("[ NOTE ]: These are the data statistics ...")
-        print(" Total D1 Samples : ", total_y1_samples)
-        print(" Total D2 Samples : ", total_y2_samples)
-
-        print(" ==== Samples in Dataset 1 Classwise ====")
-        for i, class_ in enumerate(self.dataset1.classes):
-            print(f" D1 Set:  {class_} : ", samples_per_class1[i])
-
-        print(" ==== Samples in Dataset 2 Classwise ====")
-        for i, class_ in enumerate(self.dataset2.classes):
-            print(f" D2 Set:  {class_} : ", samples_per_class2[i])
-        print("=============================================")
-
-        self.prior1, self.prior2 = prior1, prior2
+        self.dataset1.prior1, self.dataset2.prior2 = prior1, prior2
         return
 
-    def inference(self):
+    def updatePseudolabel(self):
         predictions = []
         dataloader2 = DataLoader(self.dataset2, batch_size=1024, num_workers=8, shuffle=False)
         self.model.eval()
 
         with torch.no_grad():
             for u_w, _ in dataloader2:
-                logits = self.model.infer(u_w.cuda())
-                max_confidence, pred_idx = torch.max(F.softmax(logits, dim=1), dim=1)
-                pred_idx = pred_idx.cpu().numpy().tolist()
-                predictions += pred_idx
-        return predictions
+                _, preds = torch.max(self.model(u_w.cuda()), dim=1)
+                preds = preds.cpu().tolist()
+                predictions += preds
+
+        # we add an attribute target to the second dataset and 
+        # set it to the pseudo-labels
+        self.dataset2.targets = predictions
+        return
 
     def get_lb_batch(self):
         try:
