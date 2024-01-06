@@ -59,7 +59,7 @@ class MetricOptimizer:
         '''
         with torch.no_grad():
             x = torch.tensor(self.mixup_protypes).float().cuda()
-            preds = self.model.infer_feats(x)
+            preds = self.model.forward_head(x)
             preds_distribution = F.softmax(preds, dim=-1)
             preds_distribution = preds_distribution.detach().cpu().numpy()
         return preds_distribution
