@@ -42,6 +42,8 @@ y_ = model(x1)
 # extract features 
 features = model.forward_features(x)
 
+# classify the extracted features
+logits = model.forward_head(features)
 ```
 
 ## results
