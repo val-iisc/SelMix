@@ -60,30 +60,47 @@ func_return = wrapper_model.model.func(args)
 Overview of the training pipeling
 
 ```python 
-## your datasets for mixup, for supervised case they are the same dataset
+## Define your datasets for mixup; for the supervised case, they are assumed to be the same dataset
 dataset1 = None
 dataset2 = None 
 
+# Placeholder for optimizer
 optimizer = None
 
+# Placeholder for Lagrange multipliers
 lagrange_multipliers = None
 
-
-for epochs in range(num_epochs):
+# Loop through epochs
+for epoch in range(num_epochs):
+    # Perform validation and obtain confusion matrix and prototypes
     confusion_matrix, prototypes = validation(valset, model)
+    
+    # Calculate MinRecall objective and update Lagrange multipliers
     objective = MinRecall(confusion_matrix, prototypes, lagrange_multipliers)
     lagrange_multipliers = objective.lambdas
     
+    # Obtain P_selmix and create FastJointSampler using the objective's P
     P_selmix = objective.P
     SelMix_dataloader = FastJointSampler(dataset1, dataset2, model, P_selmix)
 
-    for steps in range(num_steps_per_epoch):
+    # Loop through steps in each epoch
+    for step in range(num_steps_per_epoch):
+        # Get batches from SelMix dataloader
         (x1, y1), (x2, y2) = SelMix_dataloader.get_batch()
+        
+        # Forward pass through the model with mixed inputs
         logits = model(x1, x2)
+        
+        # Calculate cross-entropy loss using labels from the first batch
         loss = F.cross_entropy(logits, y1)
+        
+        # Backward pass and optimization step
         loss.backward()
         optimizer.step()
+        
+        # Reset gradients for the next iteration
         optimizer.zero_grad()
+
 
 ```
 ## results
