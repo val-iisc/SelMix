@@ -47,6 +47,15 @@ features = model.forward_features(x)
 # classify the extracted features
 logits = model.forward_head(features)
 ```
+## Other timm model functions
+```python
+wrapper_model = TimmModelWrapper(timm_model, mixup_factor)
+
+# the original timm model is a member of the wrapper class
+# hence the member functions func() can still be accesed as
+func_return = wrapper_model.model.func(args)
+
+```
 ## Training loop
 Overview of the training pipeling
 
