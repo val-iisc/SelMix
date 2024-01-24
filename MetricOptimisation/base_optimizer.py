@@ -26,7 +26,7 @@ class MetricOptimizer:
         mixup_prediction (numpy.ndarray): Predictions on mixed up prototypes.
         LogitChangeRate (numpy.ndarray): Logit change rate.
     """
-    def __init__(self, CM, prototypes, model, DistTemp=1, lambda_min=0.6):
+    def __init__(self, CM, prototypes, model, DistTemp=1.0, lambda_min=0.6):
         self.CM = np.clip(CM, a_min=1e-7, a_max=10000)
         self.num_classes = CM.shape[0]
         self.prototypes = prototypes
@@ -72,7 +72,7 @@ class MetricOptimizer:
         """
         with torch.no_grad():
             x = torch.tensor(self.mixup_protypes).float().cuda()
-            preds = self.model.forward_head(x)
+            preds = self.model.classify_prelogits(x)
             preds_distribution = F.softmax(preds, dim=-1)
             preds_distribution = preds_distribution.detach().cpu().numpy()
         return preds_distribution

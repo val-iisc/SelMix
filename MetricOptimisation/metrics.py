@@ -12,7 +12,7 @@ import multiprocessing
 from .base_optimizer import MetricOptimizer
 
 class MeanRecall(MetricOptimizer):
-    def __init__(self, CM, prototypes, model, DistTemp=1, lambda_min=0.6):
+    def __init__(self, CM, prototypes, model, DistTemp=0.1, lambda_min=0.6):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         # the rate of gain in the metric of interest
         # if the logit A_{i,j} increases
