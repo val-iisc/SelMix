@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 import multiprocessing
 
-from base_optimizer import MetricOptimizer
+from .base_optimizer import MetricOptimizer
 
 class MeanRecall(MetricOptimizer):
     def __init__(self, CM, prototypes, model, DistTemp=1, lambda_min=0.6):
@@ -73,7 +73,7 @@ class MinRecall(MetricOptimizer):
         print(self.lambdas)
         recall = (np.diag(self.CM)/np.sum(self.CM, 1)).tolist()
         new_lamdas_ = [(x ** self.beta) * np.exp(-1 * self.val_lr * r)\
-                        for x, r in zip(self.lambdas, recall)]
+                        for x, r in zip(self.lambdas, recall)] # type: ignore
         
         self.lambdas = [x/sum(new_lamdas_) for x in new_lamdas_]
         return
@@ -85,9 +85,9 @@ class MinRecall(MetricOptimizer):
         dM_dA = np.zeros((self.num_classes, self.num_classes))
         for i, j in itertools.product(list(range(self.num_classes)),  repeat=2):
             if i==j:
-                dM_dA[i, i] =  self.lambdas[i] * self.num_classes * (self.CM[i, i] - self.num_classes * (self.CM[i, i] ** 2))
+                dM_dA[i, i] =  self.lambdas[i] * self.num_classes * (self.CM[i, i] - self.num_classes * (self.CM[i, i] ** 2)) # type: ignore
             else:
-                dM_dA[i, j] = self.lambdas[i] * self.num_classes * (-1 * self.num_classes * self.CM[i, j] * self.CM[i, i])
+                dM_dA[i, j] = self.lambdas[i] * self.num_classes * (-1 * self.num_classes * self.CM[i, j] * self.CM[i, i]) # type: ignore
         return dM_dA
 
     def SamplingDistribution(self):
@@ -158,10 +158,10 @@ class MeanRecallWithCoverage(MetricOptimizer):
 
         dM2_dA = np.zeros((self.num_classes, self.num_classes))
         for i, j, k, l in itertools.product(list(range(self.num_classes)),  repeat=4):
-            dM2_dA[k, l] += self.lambdas[j] * dC_dA[i, j, k,l]
+            dM2_dA[k, l] += self.lambdas[j] * dC_dA[i, j, k,l] # type: ignore
 
         dM_dA = (dM1_dA + dM2_dA)
-        return dM_dA/(max(self.lambdas) + 1)
+        return dM_dA/(max(self.lambdas) + 1) # type: ignore
 
 
 
@@ -398,9 +398,9 @@ class MinHTRecall(MetricOptimizer):
         dM_dA = np.zeros((self.num_classes, self.num_classes))
         for i, j in itertools.product(list(range(self.num_classes)),  repeat=2):
             if i==j:
-                dM_dA[i, i] =  self.lambdas[i] * self.num_classes * (self.CM[i, i] - self.num_classes * (self.CM[i, i] ** 2))
+                dM_dA[i, i] =  self.lambdas[i] * self.num_classes * (self.CM[i, i] - self.num_classes * (self.CM[i, i] ** 2)) # type: ignore
             else:
-                dM_dA[i, j] = self.lambdas[i] * self.num_classes * (-1 * self.num_classes * self.CM[i, j] * self.CM[i, i])
+                dM_dA[i, j] = self.lambdas[i] * self.num_classes * (-1 * self.num_classes * self.CM[i, j] * self.CM[i, i]) # type: ignore
         return dM_dA
 
     def SamplingDistribution(self):
