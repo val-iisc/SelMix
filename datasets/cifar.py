@@ -18,7 +18,7 @@ def get_transform(mean, std, train=True, size=32):
         return transforms.Compose([transforms.ToTensor(), 
                                      transforms.Normalize(mean, std)])
 
-class SSL_LT_Dataset:
+class CIFAR_SSL_LT_Dataset:
     """
     SSL_Dataset class for handling labeled and unlabeled datasets.
     """

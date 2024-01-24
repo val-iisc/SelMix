@@ -12,7 +12,7 @@ from datasets.DistributedProxySampler import DistributedProxySampler
 def split_ssl_data(data, target, num_labels, num_classes, index=None, include_lb_to_ulb=True):
     """
     data & target is splitted into labeled and unlabeld data.
-    
+
     Args
         index: If np.array of index is given, select the data[index], target[index] as labeled samples.
         include_lb_to_ulb: If True, labeled data is also included in unlabeld data
@@ -20,15 +20,15 @@ def split_ssl_data(data, target, num_labels, num_classes, index=None, include_lb
     data, target = np.array(data), np.array(target)
     lb_data, lbs, lb_idx = sample_labeled_data(data, target, num_labels, num_classes, index)
     ulb_idx = np.array(sorted(list(set(range(len(data))) - set(lb_idx)))) #unlabeled_data index of data
-    
+
     if include_lb_to_ulb:
         print("include?: ", include_lb_to_ulb, len(lb_idx), len(target))
         return lb_data, lbs, data, target
     else:
         print("include?: ", include_lb_to_ulb, len(lbs), len(target[ulb_idx]))
         return lb_data, lbs, data[ulb_idx], target[ulb_idx]
-    
-    
+
+
 def sample_labeled_data(data, target, 
                          num_labels,
                          num_classes,
