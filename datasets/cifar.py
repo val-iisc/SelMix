@@ -80,7 +80,7 @@ class SSL_LT_Dataset:
         print("Unlabeled: ", Counter(self.ulb_targets))
         print("Labeled: ", Counter(self.lb_targets))
 
-        self.lb_dset, self.ulb_dset, self.val_dset = self.get_dataset()
+        self.get_train_dataset()
 
     def get_data(self):
         """
@@ -91,7 +91,9 @@ class SSL_LT_Dataset:
         data, targets, classes = dset.data, dset.targets, dset.classes
         self.data, self.targets, self.val_data, self.val_targets = self.resize(data, targets) # type: ignore
         self.classes = classes
-        self.test_dset = dset(self.data_dir, train=False, transforms=self.test_transform, download=True)
+        
+        dset = getattr(torchvision.datasets, self.name.upper())
+        self.test_dset = dset(self.data_dir, train=False, transform=self.test_transform, download=True)
 
     def drop_elements_randomly(self, input_list, p):
         """
@@ -233,22 +235,25 @@ class SSL_LT_Dataset:
         self.ulb_data = self.ulb_data[np.array(select_list)]
         self.ulb_targets = list(self.ulb_targets[x] for x in select_list)
 
-    def get_dataset(self):
+    def get_train_dataset(self):
         """
         Create labeled, unlabeled, and validation datasets.
 
         Returns:
             Labeled dataset, unlabeled dataset, and validation dataset.
         """
-        lb_dset = BasicDataset(self.lb_data, self.lb_targets, self.classes, self.num_classes,
+        self.lb_dset = BasicDataset(self.lb_data, self.lb_targets, self.classes, self.num_classes,
                                self.train_transform, False, None, False)
 
-        ulb_dset = BasicDataset(self.ulb_data, self.ulb_targets, self.classes, self.num_classes,
+        self.ulb_dset = BasicDataset(self.ulb_data, self.ulb_targets, self.classes, self.num_classes,
                                 self.train_transform, self.use_strong_transform, None, False)
 
-        val_dset = BasicDataset(self.val_data, self.val_targets, self.classes, self.num_classes,
+        self.val_dset = BasicDataset(self.val_data, self.val_targets, self.classes, self.num_classes,
                                 self.test_transform, False, None, False)
-        return lb_dset, ulb_dset, val_dset
+        return 
+    
+    def return_splits(self):
+        return self.lb_dset, self.ulb_dset, self.val_dset, self.test_dset
 
 
 class LT_Dataset:
@@ -296,7 +301,7 @@ class LT_Dataset:
         print("Labeled: ", Counter(self.lb_targets))
         print("Val: ", Counter(self.val_targets))
 
-        self.lb_dset,  self.val_dset = self.get_dataset()
+        self.get_dataset()
 
     def get_data(self):
         """
@@ -307,7 +312,9 @@ class LT_Dataset:
         data, targets, classes = dset.data, dset.targets, dset.classes
         self.lb_data, self.lb_targets, self.val_data, self.val_targets = self.resize(data, targets) # type: ignore
         self.classes = classes
-        self.test_dset = dset(self.data_dir, train=True, download=True, transforms=self.test_transform)
+
+        dset = getattr(torchvision.datasets, self.name.upper())
+        self.test_dset = dset(self.data_dir, train=True, download=True, transform=self.test_transform)
 
     def drop_elements_randomly(self, input_list, p):
         """
@@ -408,9 +415,12 @@ class LT_Dataset:
         Returns:
             Labeled dataset, unlabeled dataset, and validation dataset.
         """
-        lb_dset = BasicDataset(self.lb_data, self.lb_targets, self.classes, self.num_classes,
+        self.lb_dset = BasicDataset(self.lb_data, self.lb_targets, self.classes, self.num_classes,
                                self.train_transform, False, None, False)
 
-        val_dset = BasicDataset(self.val_data, self.val_targets, self.classes, self.num_classes,
+        self.val_dset = BasicDataset(self.val_data, self.val_targets, self.classes, self.num_classes,
                                 self.test_transform, False, None, False)
-        return lb_dset, val_dset
+        return 
+    def return_splits(self):
+        return self.lb_dset, self.val_dset, self.test_dset
+    
