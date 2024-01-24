@@ -1,18 +1,5 @@
-import numpy as np
-import math
 from collections import Counter
-import copy 
-from PIL import Image
-import torch
-from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.sampler import BatchSampler
-
-from .augmentation.randaugment import RandAugment
-from .data_utils import get_sampler_by_name, get_data_loader, get_onehot, split_ssl_data
-from .dataset import BasicDataset
-
-import torchvision
-from torchvision import datasets, transforms
+from torch.utils.data import Dataset
 
 mean, std = {}, {}
 mean['cifar10'] = [x / 255 for x in [125.3, 123.0, 113.9]]
@@ -38,7 +25,7 @@ class IndexDataset(Dataset):
         """
         super(IndexDataset, self).__init__()
         self.targets = targets
-        self.prior = [n/len(targets) for n in Counter(self.targets).values()]
+        self.prior = [n/len(targets) for n in Counter(self.targets).values()] # type: ignore
 
         
     def __getitem__(self, idx):
@@ -48,8 +35,8 @@ class IndexDataset(Dataset):
         else:
             return weak_augment_image, strong_augment_image, target
         """
-        return idx, self.targets[idx]
+        return idx, self.targets[idx] # type: ignore
     
     def __len__(self):
-        return len(self.targets)
+        return len(self.targets) # type: ignore
 

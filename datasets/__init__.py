@@ -9,13 +9,13 @@ from torch.utils.data.sampler import BatchSampler
 
 from .augmentation.randaugment import RandAugment
 from .data_utils import get_sampler_by_name, get_data_loader, get_onehot, split_ssl_data
-from .dataset import BasicDataset
+from .basic_dataset import BasicDataset
 
 import torchvision
 from torchvision import datasets, transforms
 
 
-
+from .cifar import SSL_Dataset
 
 
 

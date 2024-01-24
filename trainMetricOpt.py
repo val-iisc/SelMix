@@ -16,8 +16,9 @@ import torch.multiprocessing as mp
 from utils import net_builder, get_logger, count_parameters
 from train_utils import TBLog, get_SGD, get_cosine_schedule_with_warmup, get_finetune_SGD
 from models.fixmatch.fixmatchMetricOpt import FixMatch
-from datasets.ssl_dataset import SSL_Dataset
-from datasets import SSL_Dataset as train_ssl_dataset
+
+from datasets.cifar import SSL_LT_Dataset
+
 from datasets.data_utils import get_data_loader
 from datasets import SSL_STL_Dataset
 
@@ -185,12 +186,9 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Construct Dataset & DataLoader
     if 'cifar' in args.dataset:
-        print(args.N1)
-        train_dset = train_ssl_dataset( name=args.dataset,include_train=False,\
-                                        num_classes=args.num_classes,\
-                                        use_strong_transform=True,N1=args.N1,\
-                                        M1=args.M1, imbalance_l=args.imbalance_l,\
-                                        imbalance_u=args.imbalance_u, uratio=args.uratio, frac=args.frac)
+        train_dset = SSL_Dataset(name=args.dataset, train=True, num_classes=args.num_classes, data_dir='./data',
+                              N1=args.N1, M1=args.M1, include_train=False, uratio=args.uratio, 
+                              imbalance_l=args.imbalance_l, imbalance_u=args.imbalance_u)
 
         lb_dset, ulb_dset, val_dset = train_dset.lb_dset, train_dset.ulb_dset, train_dset.val_dset
 
@@ -198,6 +196,7 @@ def main_worker(gpu, ngpus_per_node, args):
         model.classes = lb_dset.classes
         model.lb_dataset = lb_dset
         model.ulb_dataset = ulb_dset
+
         _eval_dset = SSL_Dataset(name=args.dataset, train=False, 
                                 num_classes=args.num_classes, data_dir=args.data_dir)
         test_dset = _eval_dset.get_dset()
