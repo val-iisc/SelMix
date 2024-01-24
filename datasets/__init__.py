@@ -15,7 +15,7 @@ import torchvision
 from torchvision import datasets, transforms
 
 
-from .cifar import SSL_Dataset
+from .cifar import SSL_LT_Dataset
 
 
 

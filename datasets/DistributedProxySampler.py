@@ -1,6 +1,5 @@
 # copyright: https://github.com/pytorch/pytorch/issues/23430#issuecomment-562350407
 
-import math
 import torch
 from torch.utils.data.distributed import DistributedSampler
 

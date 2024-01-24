@@ -1,15 +1,6 @@
 from collections import Counter
 from torch.utils.data import Dataset
 
-mean, std = {}, {}
-mean['cifar10'] = [x / 255 for x in [125.3, 123.0, 113.9]]
-mean['cifar100'] = [x / 255 for x in [129.3, 124.1, 112.4]]
-
-std['cifar10'] = [x / 255 for x in [63.0, 62.1, 66.7]]
-std['cifar100'] = [x / 255 for x in [68.2,  65.4,  70.4]]
-
-
-
 class IndexDataset(Dataset):
     """
     BasicDataset returns a pair of image and labels (targets).

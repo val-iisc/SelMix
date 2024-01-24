@@ -1,6 +1,5 @@
-from torchvision import datasets, transforms
+from torchvision import  transforms
 from torch.utils.data import Dataset
-from .data_utils import get_onehot
 from .augmentation.randaugment import RandAugment
 
 from PIL import Image
@@ -19,9 +18,9 @@ class BasicDataset(Dataset):
     """
     def __init__(self,
                  data,
-                 targets=None,
-                 classes=None,
-                 num_classes=None,
+                 targets=[0,1,2],
+                 classes=["cat", "dog", "ship"],
+                 num_classes=3,
                  transform=None,
                  use_strong_transform=False,
                  strong_transform=None,
@@ -75,9 +74,9 @@ class BasicDataset(Dataset):
             dataset_class_wise[i] = dataset_class_wise[i][:num_samples]
             print(len(dataset_class_wise[i]))
 
-        if num_samples == 1:
-            print(" [ WARNING ]  There were far too few samples in this dataset")
-            print(" [ WARNING ]  Please either increase N1 or decrease imbalance \n" )
+            if num_samples == 1:
+                print(" [ WARNING ]  There were far too few samples in this dataset")
+                print(" [ WARNING ]  Please either increase N1 or decrease imbalance \n" )
 
         select_list = []
         for i in range(self.num_classes):
@@ -117,8 +116,8 @@ class BasicDataset(Dataset):
             if not self.use_strong_transform:
                 return img_w, target
             else:
-                return img_w, self.strong_transform(img), target
+                return img_w, self.strong_transform(img), target # type: ignore
 
-    
+
     def __len__(self):
         return len(self.data)
