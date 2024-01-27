@@ -1,3 +1,4 @@
+from matplotlib.rcsetup import validate_sketch
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -68,7 +69,6 @@ class FixMatch:
             
         self.eval_model.eval()
             
-            
     @torch.no_grad()
     def _eval_model_update(self):
         """
@@ -90,8 +90,31 @@ class FixMatch:
         self.optimizer = optimizer
         self.scheduler = scheduler
 
+    def set_dataset(self, lb_dset, ulb_dset, val_dset, test_dset, loader_dict):
+        """
+        Set datasets and loader dictionary for the model.
 
-    def train(self, args, logger=None):
+        Parameters:
+        - lb_dset: Labeled dataset
+        - ulb_dset: Unlabeled dataset
+        - val_dset: Validation dataset
+        - test_dset: Test dataset
+        - loader_dict: Dictionary containing different data loaders
+
+        Returns:
+        None
+        """
+        self.lb_dataset = lb_dset
+        self.ulb_dataset = ulb_dset
+        self.val_dataset = val_dset
+        self.test_dataset = test_dset
+        self.loader_dict = loader_dict
+        self.prior = lb_dset.prior
+        print(f'[!] data loader keys: {self.loader_dict.keys()}')
+
+
+
+    def train(self, args):
         """
         Train function of FixMatch.
         From data_loader, it inference training data, computes losses, and update the networks.
@@ -103,16 +126,16 @@ class FixMatch:
 
         #lb: labeled, ulb: unlabeled
         self.train_model.train()
-        
+
         # for gpu profiling
         start_batch = torch.cuda.Event(enable_timing=True)
         end_batch = torch.cuda.Event(enable_timing=True)
         start_run = torch.cuda.Event(enable_timing=True)
         end_run = torch.cuda.Event(enable_timing=True)
-        
+
         start_batch.record()
         best_eval_acc, best_it = 0.0, 0
-        
+
         scaler = GradScaler()
         amp_cm = autocast if args.amp else contextlib.nullcontext
 
@@ -151,12 +174,12 @@ class FixMatch:
                     pass
                 sup_loss = ce_loss(logits_x_lb, y_lb, reduction='mean')
                 unsup_loss, mask = consistency_loss(logits_x_ulb_w, 
-                                              logits_x_ulb_s, 
-                                              'ce', T, p_cutoff,
-                                               use_hard_labels=args.hard_label)
+                                                    logits_x_ulb_s, 
+                                                    'ce', T, p_cutoff,
+                                                    use_hard_labels=args.hard_label) # type: ignore
 
                 total_loss = sup_loss + self.lambda_u * unsup_loss
-            
+
             # parameter updates
             if args.amp:
                 scaler.scale(total_loss).backward()
@@ -196,7 +219,7 @@ class FixMatch:
                     best_eval_acc = tb_dict['eval/top-1-acc']
                     best_it = self.it
                 
-                self.print_fn(f"{self.it} iteration, USE_EMA: {hasattr(self, 'eval_model')}, {tb_dict}, BEST_EVAL_ACC: {best_eval_acc}, at {best_it} iters")
+                print(f"{self.it} iteration, USE_EMA: {hasattr(self, 'eval_model')}, {tb_dict}, BEST_EVAL_ACC: {best_eval_acc}, at {best_it} iters")
             
             if not args.multiprocessing_distributed or \
                     (args.multiprocessing_distributed and args.rank % ngpus_per_node == 0):
@@ -209,8 +232,7 @@ class FixMatch:
                     save_path = os.path.join(args.save_dir, args.save_name )
                     self.save_model('model_' + "iter:_" + str(self.it) + '_.pth', save_path)
                 
-                if not self.tb_log is None:
-                    self.tb_log.update(tb_dict, self.it)
+
                 
             self.it +=1
             del tb_dict
@@ -269,7 +291,7 @@ class FixMatch:
                     'scheduler': self.scheduler.state_dict(),
                     'it': self.it}, save_filename)
         
-        self.print_fn(f"model saved: {save_filename}")
+        print(f"model saved: {save_filename}")
     
     
     def load_model(self, load_path):
@@ -292,9 +314,9 @@ class FixMatch:
                     self.optimizer.load_state_dict(checkpoint[key]) 
                 else:
                     getattr(self, key).load_state_dict(checkpoint[key])
-                self.print_fn(f"Check Point Loading: {key} is LOADED")
+                print(f"Check Point Loading: {key} is LOADED")
             else:
-                self.print_fn(f"Check Point Loading: {key} is **NOT** LOADED")
+                print(f"Check Point Loading: {key} is **NOT** LOADED")
 
 if __name__ == "__main__":
     pass
