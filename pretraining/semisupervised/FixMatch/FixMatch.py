@@ -51,6 +51,7 @@ class FixMatch:
         self.train_model = model
         self.eval_model = copy.deepcopy(model)
         self.num_eval_iter = num_eval_iter
+        self.save_after = 50 * num_eval_iter
         self.t_fn = Get_Scalar(T) #temperature params function
         self.p_fn = Get_Scalar(p_cutoff) #confidence cutoff function
         self.lambda_u = lambda_u
@@ -60,7 +61,7 @@ class FixMatch:
         self.scheduler = None
         
         self.it = 0
-        self.classes = None
+        self.classes = [str(i) for i in range(self.num_classes)]
         self.prior = None
         
         for param_q, param_k in zip(self.train_model.parameters(), self.eval_model.parameters()):
@@ -81,9 +82,7 @@ class FixMatch:
             buffer_eval.copy_(buffer_train)            
     
      
-    def set_data_loader(self, loader_dict):
-        self.loader_dict = loader_dict
-        print(f'[!] data loader keys: {self.loader_dict.keys()}')    
+      
             
     
     def set_optimizer(self, optimizer, scheduler=None):
@@ -228,7 +227,7 @@ class FixMatch:
                 if self.it == best_it:
                     self.save_model('model_best.pth', save_path)
                 
-                if self.it % self.num_eval_iter == 0:
+                if self.it % self.save_after == 0:
                     save_path = os.path.join(args.save_dir, args.save_name )
                     self.save_model('model_' + "iter:_" + str(self.it) + '_.pth', save_path)
                 

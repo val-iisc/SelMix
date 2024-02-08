@@ -243,13 +243,13 @@ class CIFAR_SSL_LT_Dataset:
             Labeled dataset, unlabeled dataset, and validation dataset.
         """
         self.lb_dset = BasicDataset(self.lb_data, self.lb_targets, self.classes, self.num_classes,
-                               self.train_transform, False, None, False)
+                               self.train_transform, False, None)
 
         self.ulb_dset = BasicDataset(self.ulb_data, self.ulb_targets, self.classes, self.num_classes,
-                                self.train_transform, self.use_strong_transform, None, False)
+                                self.train_transform, self.use_strong_transform, None)
 
         self.val_dset = BasicDataset(self.val_data, self.val_targets, self.classes, self.num_classes,
-                                self.test_transform, False, None, False)
+                                self.test_transform, False, None)
         return 
     
     def return_splits(self):

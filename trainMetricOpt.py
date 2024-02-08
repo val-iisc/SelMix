@@ -14,13 +14,14 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from utils import net_builder, get_logger, count_parameters
-from train_utils import TBLog, get_SGD, get_cosine_schedule_with_warmup, get_finetune_SGD
+from train_utils import TBLog, get_finetune_SGD
 from models.fixmatch.fixmatchMetricOpt import FixMatch
 
-from datasets.cifar import SSL_LT_Dataset
+from datasets.cifar import CIFAR_SSL_LT_Dataset
+from datasets.stl import STL_SSL_LT_Dataset
 
 from datasets.data_utils import get_data_loader
-from datasets import SSL_STL_Dataset
+
 
 
 def main(args):
@@ -186,24 +187,21 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Construct Dataset & DataLoader
     if 'cifar' in args.dataset:
-        train_dset = SSL_Dataset(name=args.dataset, train=True, num_classes=args.num_classes, data_dir='./data',
-                              N1=args.N1, M1=args.M1, include_train=False, uratio=args.uratio, 
-                              imbalance_l=args.imbalance_l, imbalance_u=args.imbalance_u)
+        dataset = CIFAR_SSL_LT_Dataset(name=args.dataset, num_classes=args.num_classes, data_dir='./data',
+                                    N1=args.N1, M1=args.M1, include_train=False, uratio=args.uratio, 
+                                    imbalance_l=args.imbalance_l, imbalance_u=args.imbalance_u)
 
-        lb_dset, ulb_dset, val_dset = train_dset.lb_dset, train_dset.ulb_dset, train_dset.val_dset
+        lb_dset, ulb_dset, val_dset, test_dset  = dataset.return_splits()
 
         # add some extra params that are needed post-hoc
         model.classes = lb_dset.classes
         model.lb_dataset = lb_dset
         model.ulb_dataset = ulb_dset
 
-        _eval_dset = SSL_Dataset(name=args.dataset, train=False, 
-                                num_classes=args.num_classes, data_dir=args.data_dir)
-        test_dset = _eval_dset.get_dset()
 
     elif 'stl' in args.dataset:
-        dset = SSL_STL_Dataset("stl10", 10, args.data_dir, args.N1, False, args.imbalance_l, True, size=args.size)
-        lb_dset, ulb_dset, test_dset, val_dset = dset.basic_dataset()
+        dataset = STL_SSL_LT_Dataset("stl10", 10, args.data_dir, args.N1, False, args.imbalance_l, True, size=args.size)
+        lb_dset, ulb_dset, val_dset, test_dset  = dataset.return_splits()
         model.classes = lb_dset.classes
         model.lb_dataset = lb_dset
         model.ulb_dataset = ulb_dset

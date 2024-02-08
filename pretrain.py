@@ -104,18 +104,21 @@ def main_worker(gpu, ngpus_per_node, args):
     #SET save_path and logger
     save_path = os.path.join(args.save_dir, args.save_name)
     logger_level = "WARNING"
-    tb_log = None
     if args.rank % ngpus_per_node == 0:
-        tb_log = TBLog(save_path, 'tensorboard')
         logger_level = "INFO"
 
     logger = get_logger(args.save_name, save_path, logger_level)
     logger.warning(f"USE GPU: {args.gpu} for training")
 
-    ##################
-    # NEED TO ADD BN MOMENTUM HERE
-    ###################
     net_timm = timm.create_model(args.net)
+    # Check if the model has Batch Normalization layers
+    if 'bn' in [name for name, _ in net_timm.named_modules()]:
+        # Set the Batch Normalization momentum
+        bn_momentum = 0.1  # Adjust the value as needed
+        for module in net_timm.modules():
+            if isinstance(module, nn.BatchNorm2d):
+                module.momentum = bn_momentum
+
     net = TimmModelWrapper(net_timm, 1.0)
     model = FixMatch(net,
                      args.num_classes,
@@ -166,11 +169,11 @@ def main_worker(gpu, ngpus_per_node, args):
         torch.cuda.set_device(args.gpu)
         model.train_model = model.train_model.cuda(args.gpu)
         model.eval_model = model.eval_model.cuda(args.gpu)
-        
+
     else:
         model.train_model = torch.nn.DataParallel(model.train_model).cuda()
         model.eval_model = torch.nn.DataParallel(model.eval_model).cuda()
-    
+
     logger.info(f"model_arch: {model}")
     logger.info(f"Arguments: {args}")
 
@@ -180,12 +183,12 @@ def main_worker(gpu, ngpus_per_node, args):
     if 'cifar' in args.dataset:
         dataset = CIFAR_SSL_LT_Dataset(name=args.dataset, num_classes=args.num_classes, data_dir='./data',
                                     N1=args.N1, M1=args.M1, include_train=False, uratio=args.uratio, 
-                                    imbalance_l=args.imbalance_l, imbalance_u=args.imbalance_u)
+                                    imbalance_l=args.imbalance_l, imbalance_u=args.imbalance_u, use_strong_transform=True)
 
         lb_dset, ulb_dset, val_dset, test_dset  = dataset.return_splits()
 
         # add some extra params that are needed post-hoc
-        
+
     '''
     elif 'stl' in args.dataset:
         dataset = STL_SSL_LT_Dataset("stl10", 10, args.data_dir, args.N1, False, args.imbalance_l, True, size=args.size)
@@ -201,8 +204,6 @@ def main_worker(gpu, ngpus_per_node, args):
         lb_dset, ulb_dset, prior = train_dset.get_ssl_dset(args.num_labels, imbalance=args.imbalance, ult=args.ult)
         _eval_dset = SSL_Dataset_Imagenet(name=args.dataset, train=False, 
                                           num_classes=args.num_classes, data_dir=args.data_dir)
-
-    
     '''
 
     loader_dict = {}
@@ -214,38 +215,38 @@ def main_worker(gpu, ngpus_per_node, args):
                                               num_iters=args.num_train_iter,
                                               num_workers=args.num_workers, 
                                               distributed=args.distributed)
-    
+
     loader_dict['train_ulb'] = get_data_loader(dset_dict['train_ulb'],
                                                args.batch_size*args.uratio,
                                                data_sampler = args.train_sampler,
                                                num_iters=args.num_train_iter,
                                                num_workers=4*args.num_workers,
                                                distributed=args.distributed)
-    
+
     loader_dict['eval'] = get_data_loader(dset_dict['eval'],
                                           args.eval_batch_size, 
                                           num_workers=args.num_workers)
-    
+
     ## set DataLoader on FixMatch
     model.set_dataset(lb_dset=lb_dset,ulb_dset=ulb_dset,\
                       val_dset=val_dset, test_dset=test_dset,\
                       loader_dict=loader_dict)  # type: ignore
-    
+
     #If args.resume, load checkpoints from args.load_path
     if args.resume:
-        model.load_model(args.load_path)
-    
+        model.load_model(args.load_path) #type: ignore
+
     # START TRAINING of FixMatch
     trainer = model.train
     for epoch in range(args.epoch):
-        trainer(args, logger=logger)
-        
+        trainer(args)
+
     if not args.multiprocessing_distributed or \
                 (args.multiprocessing_distributed and args.rank % ngpus_per_node == 0):
-        model.save_model('latest_model.pth', save_path)
-        
+        model.save_model('latest_model.pth', save_path) #type: ignore
+
     logging.warning(f"GPU {args.rank} training is FINISHED")
-    
+
 
 if __name__ == "__main__":
     import argparse

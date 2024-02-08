@@ -23,9 +23,7 @@ class BasicDataset(Dataset):
                  num_classes=3,
                  transform=None,
                  use_strong_transform=False,
-                 strong_transform=None,
-                 onehot=False,
-                 *args, **kwargs):
+                 strong_transform=None):
         """
         Args
             data: x_data
@@ -53,41 +51,6 @@ class BasicDataset(Dataset):
         self.is_longtail = False
         self.total_samples = sum(Counter(self.targets).values())
         self.prior = [n/self.total_samples for n in Counter(self.targets).values()]
-
-    def longtail(self, imbalance, N1):
-        if self.is_longtail:
-            print(" [ WARNING ] This dataset has already been made long tail")
-            print(" [ WARNING ] proceeding further anyways")
-
-        dataset_class_wise = {}
-        dataset = zip(self.data, self.targets)
-
-        for i in range(self.num_classes):
-            dataset_class_wise[i] = []
-
-        for i, (img, label) in enumerate(dataset):
-            dataset_class_wise[label].append(i)
-
-        lamda = math.exp(-1 * math.log(imbalance)/(self.num_classes - 1))
-        for i in range(self.num_classes):
-            num_samples = max(int(lamda**i * N1), 1)
-            dataset_class_wise[i] = dataset_class_wise[i][:num_samples]
-            print(len(dataset_class_wise[i]))
-
-            if num_samples == 1:
-                print(" [ WARNING ]  There were far too few samples in this dataset")
-                print(" [ WARNING ]  Please either increase N1 or decrease imbalance \n" )
-
-        select_list = []
-        for i in range(self.num_classes):
-            select_list = select_list + dataset_class_wise[i]
-        
-        self.data = self.data[np.array(select_list)]
-        self.targets = list(self.targets[x] for x in select_list)
-        self.total_samples = sum(Counter(self.targets).values())
-        self.prior = [n/self.total_samples for n in Counter(self.targets).values()]
-        self.is_longtail = True
-        return 
 
 
     def __getitem__(self, idx):
