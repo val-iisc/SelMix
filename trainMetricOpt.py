@@ -3,8 +3,9 @@ import os
 import logging
 import random
 import warnings
-import wandb
 
+import wandb
+import timm
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,13 +14,11 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
+from models.wrapper import TimmModelWrapper
 from utils import net_builder, get_logger, count_parameters
 from train_utils import TBLog, get_finetune_SGD
-from models.fixmatch.fixmatchMetricOpt import FixMatch
-
+from finetuning.selmix_ssl import SelMixSSL
 from datasets.cifar import CIFAR_SSL_LT_Dataset
-from datasets.stl import STL_SSL_LT_Dataset
-
 from datasets.data_utils import get_data_loader
 
 
@@ -108,19 +107,28 @@ def main_worker(gpu, ngpus_per_node, args):
 
     logger = get_logger(args.save_name, save_path, logger_level)
     logger.warning(f"USE GPU: {args.gpu} for training")
-
+    
+    net_timm = timm.create_model(args.net, num_classes=args.num_classes)
+    net = TimmModelWrapper(net_timm, 1.0)
+    if 'bn' in [name for name, _ in net_timm.named_modules()]:
+        # Set the Batch Normalization momentum
+        # Freezing bn update to preserve the 
+        # condition of fixed prototype assumption
+        bn_momentum = 0.0  
+        for module in net_timm.modules():
+            if isinstance(module, nn.BatchNorm2d):
+                module.momentum = bn_momentum
+    
+    
 
     # SET FixMatch: class FixMatch in models.fixmatch
-    args.bn_momentum =  0.0 # 1-args.ema_m
-    _net_builder = net_builder(args.net, 
-                               args.net_from_name,
-                               {'depth': args.depth, 
-                                'widen_factor': args.widen_factor,
-                                'leaky_slope': args.leaky_slope,
-                                'bn_momentum': args.bn_momentum,
-                                'dropRate': args.dropout})
-
-    model = FixMatch(_net_builder,
+    model = SelMixSSL(net,
+                      args.
+                      args.num_classes, 
+                      args=args)
+    
+    
+    FixMatch(_net_builder,
                      args.num_classes,
                      args.ema_m,
                      num_eval_iter=args.num_eval_iter,

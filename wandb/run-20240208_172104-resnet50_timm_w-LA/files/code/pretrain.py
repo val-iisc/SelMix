@@ -1,13 +1,12 @@
 #import needed library
+from cgi import test
 import os
 import logging
 import random
 import warnings
-import cgi
-
-# Third-Party Library Imports
 from models.wrapper import TimmModelWrapper
 import wandb
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,14 +14,15 @@ import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.multiprocessing as mp
+
+from utils import net_builder, get_logger, count_parameters
+from train_utils import TBLog, get_SGD, get_cosine_schedule_with_warmup
+from pretraining.semisupervised.FixMatch.FixMatch import FixMatch
 import timm
 
-# Local Imports
-from utils import get_logger, count_parameters
-from train_utils import get_SGD, get_cosine_schedule_with_warmup
-from pretraining.semisupervised.FixMatch.FixMatch import FixMatch
 from datasets.cifar import CIFAR_SSL_LT_Dataset
 from datasets.stl import STL_SSL_LT_Dataset
+
 from datasets.data_utils import get_data_loader
 
 
@@ -110,9 +110,7 @@ def main_worker(gpu, ngpus_per_node, args):
     logger = get_logger(args.save_name, save_path, logger_level)
     logger.warning(f"USE GPU: {args.gpu} for training")
 
-    net_timm = timm.create_model(args.net, num_classes=args.num_classes)
-    
-    '''
+    net_timm = timm.create_model(args.net)
     # Check if the model has Batch Normalization layers
     if 'bn' in [name for name, _ in net_timm.named_modules()]:
         # Set the Batch Normalization momentum
@@ -120,7 +118,7 @@ def main_worker(gpu, ngpus_per_node, args):
         for module in net_timm.modules():
             if isinstance(module, nn.BatchNorm2d):
                 module.momentum = bn_momentum
-    '''
+
     net = TimmModelWrapper(net_timm, 1.0)
     model = FixMatch(net,
                      args.num_classes,

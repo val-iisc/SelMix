@@ -66,17 +66,13 @@ def get_data_loader(dset,
             num_replicas = 1
         
         if (num_epochs is not None) and (num_iters is None):
-            print("here 3")
             num_samples = len(dset)*num_epochs
         elif (num_epochs is None) and (num_iters is not None):
-            print("here 2")
             import math
-            print(batch_size, num_iters, num_replicas)
             num_samples = batch_size * num_iters * num_replicas
         else:
-            print("here")
             num_samples = len(dset)
-        
+
         if data_sampler.__name__ == 'RandomSampler':    
             data_sampler = data_sampler(dset, replacement, num_samples, generator)
         elif data_sampler.__name__ == 'WeightedRandomSampler':

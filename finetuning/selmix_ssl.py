@@ -24,31 +24,33 @@ class SelMixSSL:
         dataset: Dataset for SSL.
         args: Command-line arguments.
     """
-    def __init__(self, model, num_classes, ema_m, hard_label=True, num_eval_iter=1000, dataset=None, args=None):
+    def __init__(self, model, num_classes, num_eval_iter=1000,  args=None):
         super(SelMixSSL, self).__init__()
 
+        # Initialization of attributes
         self.loader = {}
         self.num_classes = num_classes
-        self.ema_m = ema_m
         self.args = args
         self.model = model
         self.num_eval_iter = num_eval_iter
-        self.use_hard_label = hard_label
+        self.save_after = 10 * num_eval_iter
         self.num_feats = self.model.model.fc.in_features
         self.optimizer = None
         self.scheduler = None
-        self.dataset = dataset
-        self.lb_dset, self.ulb_dset, self.val_dset, self.test_dset = self.dataset.return_splits()
         self.it = 0
         self.classes = None
 
-        # Initialize lambdas based on optimization type
+        # Initialize lagrange multipliers based on 
+        # optimization type, if samples from 
+        # R+ or from K-1 simplex
         if "coverage" in args.M:
             self.lambdas = [0] * self.num_classes
         else:
             self.lambdas = [1 / self.num_classes] * self.num_classes
 
+        # Set the model to evaluation mode
         self.model.eval()
+
 
     def set_data_loader(self, loader_dict):
         """
@@ -70,6 +72,28 @@ class SelMixSSL:
         """
         self.optimizer = optimizer
         self.scheduler = scheduler
+    
+    def set_dataset(self, lb_dset, ulb_dset, val_dset, test_dset, loader_dict):
+        """
+        Set datasets and loader dictionary for the model.
+
+        Parameters:
+            lb_dset: Labeled dataset.
+            ulb_dset: Unlabeled dataset.
+            val_dset: Validation dataset.
+            test_dset: Test dataset.
+            loader_dict: Dictionary containing different data loaders.
+
+        Returns:
+            None
+        """
+        self.lb_dataset = lb_dset
+        self.ulb_dataset = ulb_dset
+        self.val_dataset = val_dset
+        self.test_dataset = test_dset
+        self.loader_dict = loader_dict
+        self.prior = lb_dset.prior
+        print(f'[!] data loader keys: {self.loader_dict.keys()}')
 
     def train(self, args, logger=None):
         """
@@ -274,26 +298,49 @@ class SelMixSSL:
 
         # Choose optimization criterion based on command-line arguments
         if self.args.M == "mean_recall":
-            print("Optimizing for mean recall")
-            MR = MeanRecall(CM, prototypes, model, args.DistTemp)
-
+            MR = MeanRecall(CM, prototypes, model, args.DistTemp, args.mask, percentile=args.percentile)
+            
         elif self.args.M == "min_recall":
-            print("Optimizing for min recall")
-            MR = MinRecall(CM, prototypes, model, args.DistTemp,
+            MR = MinRecall(CM, prototypes, model, args.DistTemp, args.mask,\
+                           self.lambdas, self.args.beta, self.args.val_lr)
+            self.lambdas = MR.lambdas
+        
+        elif self.args.M == "min_HT_recall":
+            MR = MinHTRecall(CM, prototypes, model, args.DistTemp, args.mask,\
                            self.lambdas, self.args.beta, self.args.val_lr)
             self.lambdas = MR.lambdas
 
         elif self.args.M == "mean_recall_min_coverage":
-            print("Optimizing for mean_recall_min_coverage")
-            MR = MeanRecallWithCoverage(CM, prototypes, self.model,
-                                        args.DistTemp, args.mask, self.lambdas,
+            MR = MeanRecallWithCoverage(CM, prototypes, self.train_model,\
+                                        args.DistTemp, args.mask, self.lambdas,\
                                         alpha=self.args.alpha, tau=self.args.tau,
                                         lambda_max=self.args.lambda_max)
             self.lambdas = MR.lambdas
-
+        elif self.args.M == "mean_recall_min_HT_coverage":
+            MR = MeanRecallWithHTCoverage(CM, prototypes, self.train_model,\
+                                        args.DistTemp, args.mask, self.lambdas,\
+                                        alpha=self.args.alpha, tau=self.args.tau,
+                                        lambda_max=self.args.lambda_max)
+            self.lambdas = MR.lambdas
+        elif self.args.M == "HM_min_HT_coverage":
+            print("HM with HT coverage constraint")
+            MR = HMWithHTCoverage(CM, prototypes, self.train_model,\
+                                        args.DistTemp, args.mask, self.lambdas,\
+                                        alpha=self.args.alpha, tau=self.args.tau,
+                                        lambda_max=self.args.lambda_max)
+            self.lambdas = MR.lambdas
         elif self.args.M == "g_mean":
-            print("Optimizing for g_mean")
-            MR = Gmean(CM, prototypes, self.model, args.DistTemp, args.mask)
+            MR = Gmean(CM, prototypes, self.train_model, args.DistTemp, args.mask)
+
+        elif self.args.M == "h_mean":
+            MR = Hmean(CM, prototypes, self.train_model, args.DistTemp, args.mask)
+        
+        elif self.args.M == "HM_min_coverage":
+            MR = HMWithCoverage(CM, prototypes, self.train_model,\
+                                args.DistTemp, args.mask, self.lambdas,\
+                                alpha=self.args.alpha, tau=self.args.tau,
+                                lambda_max=self.args.lambda_max)
+            self.lambdas = MR.lambdas
 
         # Set the sampling distribution to sample from
         self.P = MR.P
