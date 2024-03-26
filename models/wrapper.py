@@ -27,7 +27,6 @@ class TimmModelWrapper(nn.Module):
             # mix the features
             batch_size = features2.shape[0] # type: ignore
             mixup_coeff = Uniform(self.mixup_factor,1).sample([batch_size]).cuda() # type: ignore
-            print(mixup_coeff)
             feats = (features1.T * mixup_coeff).T + (features2.T * (1-mixup_coeff)).T 
 
             # Forward pass through the modified classifier

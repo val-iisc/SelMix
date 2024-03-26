@@ -3,31 +3,54 @@ from torch.utils.data import Dataset
 
 class IndexDataset(Dataset):
     """
-    BasicDataset returns a pair of image and labels (targets).
-    If targets are not given, BasicDataset returns None as the label.
-    This class supports strong augmentation for Fixmatch,
-    and return both weakly and strongly augmented images.
+    IndexDataset returns a pair of index and target.
+
+    If targets are not provided, IndexDataset returns None as the target.
+    This class also calculates the prior probability distribution of the targets.
     """
-    def __init__(self,
-                 targets=None):
+
+    def __init__(self, targets=None):
         """
-        Args
-            targets: y_data (if not exist, None)
+        Initialize the IndexDataset.
+
+        Args:
+            targets (list, optional): List of target labels. Defaults to None.
         """
-        super(IndexDataset, self).__init__()
+        super().__init__()
         self.targets = targets
-        self.prior = [n/len(targets) for n in Counter(self.targets).values()] # type: ignore
+        self.calculate_prior()
 
-        
-    def __getitem__(self, idx):
+    def __getitem__(self, index):
         """
-        If strong augmentation is not used,
-            return weak_augment_image, target
-        else:
-            return weak_augment_image, strong_augment_image, target
+        Get the index-target pair at the given index.
+
+        Args:
+            index (int): Index of the data point.
+
+        Returns:
+            tuple: Index-target pair.
         """
-        return idx, self.targets[idx] # type: ignore
-    
+        if self.targets is None:
+            return index, None
+        return index, self.targets[index]
+
     def __len__(self):
-        return len(self.targets) # type: ignore
+        """
+        Get the length of the dataset.
 
+        Returns:
+            int: Length of the dataset.
+        """
+        if self.targets is None:
+            return 0
+        return len(self.targets)
+
+    def calculate_prior(self):
+        """
+        Calculate the prior probability distribution of the targets.
+        """
+        if self.targets is None:
+            self.prior = None
+        else:
+            target_counts = Counter(self.targets)
+            self.prior = [count / len(self.targets) for count in target_counts.values()]

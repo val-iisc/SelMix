@@ -38,8 +38,7 @@ class MeanRecall(MetricOptimizer):
     def SamplingDistribution(self):
         logits = np.zeros((self.num_classes, self.num_classes))
         MetricGainRate = self.MetricGainRate
-        print("max gain:", np.max(MetricGainRate)) 
-
+        
         for i, j in itertools.product(list(range(self.num_classes)),  repeat=2):
             logits[i, j] = np.sum(MetricGainRate * self.LogitChangeRate[i, j, :, :])
         
@@ -523,7 +522,6 @@ class HmeanWithHTCoverage(MetricOptimizer):
                             else lambda_t/(0.1 * self.num_classes) for i in range(self.num_classes)]
         self.lambda_h = lambda_h
         self.lambda_t = lambda_t
-        print("lambdas", self.lambdas)
         return
 
 

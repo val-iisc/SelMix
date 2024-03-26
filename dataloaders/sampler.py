@@ -9,27 +9,31 @@ from datasets.index_dataset import IndexDataset
 
 
 class FastJointSampler:
+    """
+    A class for joint sampling from two datasets based on a provided sampling distribution.
+
+    Args:
+        dataset1 (Dataset): Labeled torch dataset used for MU.
+        dataset2 (Dataset): Unlabeled torch dataset.
+        model: The model used for generating pseudo-labels.
+        samp_dist (numpy.ndarray): A KXK numpy matrix representing P(y1, y2).
+        batch_size (int): Size of the batch to be returned.
+        semi_supervised (bool): If True, pseudo-labels are generated for dataset2.
+
+    Attributes:
+        dataset1 (Dataset): Labeled dataset.
+        dataset2 (Dataset): Unlabeled dataset.
+        batch_size (int): Batch size.
+        model: The model for pseudo-label generation.
+        sampling_distribution (numpy.ndarray): Sampling distribution matrix.
+        num_classes (int): Number of classes.
+    """
+
     def __init__(self, dataset1, dataset2, model, samp_dist, batch_size=256, semi_supervised=False):
-        """
-        Returns an object that returns a batch of (x1, y1, x2, y2) that satisfy the sampling distribution
-        provided i.e P(y1, y2)
-
-        Args:
-            dataset1 (Dataset): A torch dataset object whose label will be used for MU.
-            dataset2 (Dataset): A torch dataset object whose label will not be used for MU.
-            model: The model needed to generate pseudo-labels.
-            samp_dist (numpy.ndarray): A KXK numpy matrix representing P(y1, y2).
-            batch_size (int): Size of the batch to be returned.
-            semi_supervised (bool): If the second dataset needs the pseudo-labels to be generated,
-                                    else use the targets in the datasets to keep the sample in the dataset.
-        """
-        super(FastJointSampler, self).__init__()
-
         self.semi_supervised = semi_supervised
         self.dataset1 = deepcopy(dataset1)
         self.dataset2 = deepcopy(dataset2)
         self.batch_size = batch_size
-
         self.model = model
 
         self.sampling_distribution = samp_dist
@@ -42,7 +46,7 @@ class FastJointSampler:
         if self.semi_supervised:
             self.update_pseudo_label()
         self.prior_update()
-        # print(self.dataset2.prior)
+
         self.dataset2_idx_dataset = IndexDataset(self.dataset2.targets)
 
         (
@@ -51,7 +55,6 @@ class FastJointSampler:
             self.y2_given_y1_loader_dict,
             self.y2_given_y1_iter_dict,
         ) = self.get_loaders()
-
 
     def prior_update(self):
         """
@@ -64,7 +67,6 @@ class FastJointSampler:
         prior2 = [Counter(self.dataset2.targets)[i] / num_y2 for i in range(self.num_classes)]
 
         self.dataset1.prior, self.dataset2.prior = prior1, prior2
-        return
 
     def update_pseudo_label(self):
         """
@@ -81,27 +83,26 @@ class FastJointSampler:
                 predictions += preds
 
         self.dataset2.targets = predictions
-        return
 
     def get_lb_batch(self):
         """
         Gets a batch from the labeled dataset (dataset1).
         """
         try:
-            return self.y1_iter.next()
-        except:
+            return next(self.y1_iter)
+        except StopIteration:
             self.y1_iter = iter(self.y1_loader)
-            return self.y1_iter.next()
+            return next(self.y1_iter)
 
     def get_y2_given_y1_sample(self, y1):
         """
         Gets a sample from the unlabeled dataset (dataset2) given a y1 value.
         """
         try:
-            return self.y2_given_y1_iter_dict[y1].next()
-        except:
+            return next(self.y2_given_y1_iter_dict[y1])
+        except StopIteration:
             self.y2_given_y1_iter_dict[y1] = iter(self.y2_given_y1_loader_dict[y1])
-            return self.y2_given_y1_iter_dict[y1].next()
+            return next(self.y2_given_y1_iter_dict[y1])
 
     def get_batch(self):
         """
@@ -111,7 +112,7 @@ class FastJointSampler:
         X1, Y1 = self.get_lb_batch()
 
         for i in Y1.numpy().tolist():
-            x2_idx, y2 =  self.get_y2_given_y1_sample(i) # next(self.y2_given_y1_iter_dict[f"{i}"])
+            x2_idx, y2 = self.get_y2_given_y1_sample(i)
             x2, y2_ = self.dataset2[x2_idx]
             assert y2 == y2_
             X2.append(x2)
@@ -141,16 +142,16 @@ class FastJointSampler:
         y2_given_y1_iter_dict = {}
 
         for i in range(self.num_classes):
-            print("generating loader : ", i)
             sampler = WeightedRandomSampler(weights=y2_given_y1_wts[i], num_samples=len(self.dataset2.targets),
                                             replacement=True)
 
             loader = DataLoader(self.dataset2_idx_dataset, batch_size=None, num_workers=0, sampler=sampler)
-            y2_given_y1_loader_dict.update({i: loader})
-            y2_given_y1_iter_dict.update({i: iter(loader)})
+            y2_given_y1_loader_dict[i] = loader
+            y2_given_y1_iter_dict[i] = iter(loader)
 
         return y1_loader, y1_iter, y2_given_y1_loader_dict, y2_given_y1_iter_dict
 
 
 if __name__ == "__main__":
-    print("work in progress")
+    # Example usage of FastJointSampler
+    print("Add some tests for FastJointSampler")

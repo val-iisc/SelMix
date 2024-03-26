@@ -251,7 +251,6 @@ def get_metrics(outputs, labels, classes, tag="test/", probs=None):
     for key in curr_keys:
         metrics[tag + key] = metrics[key]
         del metrics[key]
-    print(metrics)
     return metrics, CM
 
 

@@ -124,9 +124,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 module.requires_grad_ = False
 
     # SET FixMatch: class FixMatch in models.fixmatch
-    model = SelMixSSL(net,
-                      args, 
-                      args=args)
+    model = SelMixSSL(net, args)
 
     logger.info(f'Number of Trainable Params: {count_parameters(model.model)}')
 
