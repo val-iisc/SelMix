@@ -112,15 +112,6 @@ def main_worker(gpu, ngpus_per_node, args):
 
     net_timm = timm.create_model(args.net, num_classes=args.num_classes)
     
-    '''
-    # Check if the model has Batch Normalization layers
-    if 'bn' in [name for name, _ in net_timm.named_modules()]:
-        # Set the Batch Normalization momentum
-        bn_momentum = 0.1  # Adjust the value as needed
-        for module in net_timm.modules():
-            if isinstance(module, nn.BatchNorm2d):
-                module.momentum = bn_momentum
-    '''
     net = TimmModelWrapper(net_timm, 1.0)
     model = FixMatch(net,
                      args.num_classes,

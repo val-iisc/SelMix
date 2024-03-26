@@ -92,6 +92,8 @@ def get_finetune_SGD(net, opt='SGD', lr=0.001, weight_decay=5e-4, freeze_backbon
     fc_no_decay = []
     for name, param in net.named_parameters():
         if 'fc' in name:
+            if 'bn' in name:
+                param.requires_grad=False
             if 'bias' in name:
                 fc_no_decay.append(param)
             else:

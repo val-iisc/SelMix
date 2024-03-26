@@ -42,7 +42,7 @@ class FastJointSampler:
         if self.semi_supervised:
             self.update_pseudo_label()
         self.prior_update()
-
+        # print(self.dataset2.prior)
         self.dataset2_idx_dataset = IndexDataset(self.dataset2.targets)
 
         (
@@ -111,7 +111,7 @@ class FastJointSampler:
         X1, Y1 = self.get_lb_batch()
 
         for i in Y1.numpy().tolist():
-            x2_idx, y2 = next(self.y2_given_y1_iter_dict[f"{i}"])
+            x2_idx, y2 =  self.get_y2_given_y1_sample(i) # next(self.y2_given_y1_iter_dict[f"{i}"])
             x2, y2_ = self.dataset2[x2_idx]
             assert y2 == y2_
             X2.append(x2)
@@ -146,8 +146,8 @@ class FastJointSampler:
                                             replacement=True)
 
             loader = DataLoader(self.dataset2_idx_dataset, batch_size=None, num_workers=0, sampler=sampler)
-            y2_given_y1_loader_dict.update({f"{i}": loader})
-            y2_given_y1_iter_dict.update({f"{i}": iter(loader)})
+            y2_given_y1_loader_dict.update({i: loader})
+            y2_given_y1_iter_dict.update({i: iter(loader)})
 
         return y1_loader, y1_iter, y2_given_y1_loader_dict, y2_given_y1_iter_dict
 

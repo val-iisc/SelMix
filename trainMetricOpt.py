@@ -100,16 +100,19 @@ def main_worker(gpu, ngpus_per_node, args):
     #SET save_path and logger
     save_path = os.path.join(args.save_dir, args.save_name)
     logger_level = "WARNING"
-    tb_log = None
     if args.rank % ngpus_per_node == 0:
-        tb_log = TBLog(save_path, 'tensorboard')
         logger_level = "INFO"
 
     logger = get_logger(args.save_name, save_path, logger_level)
     logger.warning(f"USE GPU: {args.gpu} for training")
     
     net_timm = timm.create_model(args.net, num_classes=args.num_classes)
-    net = TimmModelWrapper(net_timm, 1.0)
+    net = TimmModelWrapper(net_timm, 0.6)
+    for module in net.model.modules():
+        if isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.BatchNorm1d):
+            module.momentum = 0.0
+            module.track_running_stats = False
+            module.requires_grad_ = False
     if 'bn' in [name for name, _ in net_timm.named_modules()]:
         # Set the Batch Normalization momentum
         # Freezing bn update to preserve the 
@@ -118,36 +121,23 @@ def main_worker(gpu, ngpus_per_node, args):
         for module in net_timm.modules():
             if isinstance(module, nn.BatchNorm2d):
                 module.momentum = bn_momentum
-    
-    
+                module.requires_grad_ = False
 
     # SET FixMatch: class FixMatch in models.fixmatch
     model = SelMixSSL(net,
-                      args.
-                      args.num_classes, 
+                      args, 
                       args=args)
-    
-    
-    FixMatch(_net_builder,
-                     args.num_classes,
-                     args.ema_m,
-                     num_eval_iter=args.num_eval_iter,
-                     tb_log=tb_log,
-                     logger=logger,
-                     args=args)
 
-    logger.info(f'Number of Trainable Params: {count_parameters(model.train_model)}')
-
+    logger.info(f'Number of Trainable Params: {count_parameters(model.model)}')
 
     # SET Optimizer & LR Scheduler
     ## construct SGD and cosine lr scheduler
-    
-    
-    optimizer = get_finetune_SGD(model.train_model, args.opt,\
+
+    optimizer = get_finetune_SGD(model.model, args.opt,\
                     lr = args.lr, weight_decay=args.weight_decay,\
                     freeze_backbone=args.freeze_backbone)
-    
-    for name,param in model.train_model.named_parameters():
+
+    for name,param in model.model.named_parameters():
         if param.requires_grad:
             print(name, param.requires_grad)
 
@@ -168,10 +158,10 @@ def main_worker(gpu, ngpus_per_node, args):
             workers: workers per node -> workers per gpu
             '''
             args.batch_size = int(args.batch_size / ngpus_per_node)
-            model.train_model.cuda(args.gpu)
-            model.train_model = torch.nn.parallel.DistributedDataParallel(model.train_model,
+            model.model.cuda(args.gpu)
+            model.model = torch.nn.parallel.DistributedDataParallel(model.model,
                                                                           device_ids=[args.gpu], find_unused_parameters=True)
-            model.eval_model.cuda(args.gpu)
+            model.model.cuda(args.gpu)
 
         else:
             # if arg.gpu is None, DDP will divide and allocate batch_size
@@ -181,12 +171,10 @@ def main_worker(gpu, ngpus_per_node, args):
 
     elif args.gpu is not None:
         torch.cuda.set_device(args.gpu)
-        model.train_model = model.train_model.cuda(args.gpu)
-        model.eval_model = model.eval_model.cuda(args.gpu)
+        model.model = model.model.cuda(args.gpu)
 
     else:
-        model.train_model = torch.nn.DataParallel(model.train_model).cuda()
-        model.eval_model = torch.nn.DataParallel(model.eval_model).cuda()
+        model.model = torch.nn.DataParallel(model.model).cuda()
 
     logger.info(f"model_arch: {model}")
     logger.info(f"Arguments: {args}")
@@ -202,9 +190,7 @@ def main_worker(gpu, ngpus_per_node, args):
         lb_dset, ulb_dset, val_dset, test_dset  = dataset.return_splits()
 
         # add some extra params that are needed post-hoc
-        model.classes = lb_dset.classes
-        model.lb_dataset = lb_dset
-        model.ulb_dataset = ulb_dset
+        
 
 
     elif 'stl' in args.dataset:
@@ -217,9 +203,21 @@ def main_worker(gpu, ngpus_per_node, args):
 
 
     loader_dict = {}
-    dset_dict = {'train_lb': lb_dset, 'train_ulb': ulb_dset, 'eval': test_dset,\
-                 'val': val_dset, 'train_MO_lb': lb_dset, 'train_MO_ulb': ulb_dset}
+    dset_dict = {'train_lb': lb_dset, 'train_ulb': ulb_dset, 'eval': test_dset, 'val': val_dset}
 
+    loader_dict['train_lb'] = get_data_loader(dset_dict['train_lb'],
+                                              args.batch_size,
+                                              data_sampler = args.train_sampler,
+                                              num_iters=args.num_train_iter,
+                                              num_workers=args.num_workers, 
+                                              distributed=args.distributed)
+
+    loader_dict['train_ulb'] = get_data_loader(dset_dict['train_ulb'],
+                                               args.batch_size*args.uratio,
+                                               data_sampler = args.train_sampler,
+                                               num_iters=args.num_train_iter,
+                                               num_workers=4*args.num_workers,
+                                               distributed=args.distributed)
 
     loader_dict['val'] = get_data_loader(dset_dict['val'],
                                           args.eval_batch_size, 
@@ -229,10 +227,10 @@ def main_worker(gpu, ngpus_per_node, args):
                                           args.eval_batch_size, 
                                           num_workers=args.num_workers)
 
-    loader_dict['MixupSampler'] = None
-    print(" Samplers have been loaded ")
     ## set DataLoader on FixMatch
-    model.set_data_loader(loader_dict)
+    model.set_dataset(lb_dset=lb_dset,ulb_dset=ulb_dset,\
+                      val_dset=val_dset, test_dset=test_dset,\
+                      loader_dict=loader_dict)  # type: ignore
 
     #If args.resume, load checkpoints from args.load_path
     if args.resume:
@@ -241,7 +239,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # START TRAINING of FixMatch
     trainer = model.train
     for epoch in range(args.epoch):
-        trainer(args, logger=logger)
+        trainer(args)
 
     if not args.multiprocessing_distributed or \
                 (args.multiprocessing_distributed and args.rank % ngpus_per_node == 0):
@@ -283,8 +281,8 @@ if __name__ == "__main__":
     
     parser.add_argument('--DistTemp', type=float, default=1.0)
     parser.add_argument('--percentile', type=float, default=100.0)
-    parser.add_argument('--ema_m', type=float, default=0.999, help='ema momentum for eval_model')
-    parser.add_argument('--ema_v', type=float, default=1.0, help='ema momentum for eval_model')
+    parser.add_argument('--ema_m', type=float, default=0.999, help='ema momentum for model')
+    parser.add_argument('--ema_v', type=float, default=1.0, help='ema momentum for model')
     parser.add_argument('--mixup_lambda_min', type=float, default=0.6)
     parser.add_argument('--filter', action='store_true', help='use mixed precision training or not')
     parser.add_argument('--conf_thresh', type=float, default=None)

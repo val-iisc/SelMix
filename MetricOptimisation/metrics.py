@@ -38,6 +38,7 @@ class MeanRecall(MetricOptimizer):
     def SamplingDistribution(self):
         logits = np.zeros((self.num_classes, self.num_classes))
         MetricGainRate = self.MetricGainRate
+        print("max gain:", np.max(MetricGainRate)) 
 
         for i, j in itertools.product(list(range(self.num_classes)),  repeat=2):
             logits[i, j] = np.sum(MetricGainRate * self.LogitChangeRate[i, j, :, :])
@@ -50,7 +51,7 @@ class MeanRecall(MetricOptimizer):
 
 
 class MinRecall(MetricOptimizer):
-    def __init__(self, CM, prototypes, model, DistTemp=1,\
+    def __init__(self, CM, prototypes, model, DistTemp=1.0,\
                  lambdas=None, beta=1.0, val_lr=1.0, lambda_min=0.8):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.lambdas = lambdas
@@ -70,7 +71,6 @@ class MinRecall(MetricOptimizer):
         '''
         update the lagrange multiplier for the given method
         '''
-        print(self.lambdas)
         recall = (np.diag(self.CM)/np.sum(self.CM, 1)).tolist()
         new_lamdas_ = [(x ** self.beta) * np.exp(-1 * self.val_lr * r)\
                         for x, r in zip(self.lambdas, recall)] # type: ignore
@@ -105,7 +105,7 @@ class MinRecall(MetricOptimizer):
 
 
 class MeanRecallWithCoverage(MetricOptimizer):
-    def __init__(self, CM, prototypes, model, DistTemp=1,\
+    def __init__(self, CM, prototypes, model, DistTemp=1.0,\
                  lambdas=None, alpha=0.95, tau=0.1, lambda_max=10, lambda_min=0.8):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.alpha = alpha
@@ -127,10 +127,7 @@ class MeanRecallWithCoverage(MetricOptimizer):
 
     def lambda_update(self):
         lambdas = [max(self.lambda_max * (1-math.exp(cd/self.tau)), 0) for cd in self.coverage_diff.tolist()]
-        print("coverages", self.coverage_diff)
-
         self.lambdas = lambdas
-        print("lambdas", self.lambdas)
         return
 
 
@@ -138,7 +135,6 @@ class MeanRecallWithCoverage(MetricOptimizer):
         '''
         returns dM/dA_{i,j}
         '''
-        print("metirc is fixed now")
         dM1_dA = np.zeros((self.num_classes, self.num_classes))
         for i, j in itertools.product(list(range(self.num_classes)),  repeat=2):
             if i==j:
@@ -180,7 +176,7 @@ class MeanRecallWithCoverage(MetricOptimizer):
 
 
 class Gmean(MetricOptimizer):
-    def __init__(self, CM, prototypes, model, DistTemp=1,  lambda_min=0.6):
+    def __init__(self, CM, prototypes, model, DistTemp=1.0,  lambda_min=0.6):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         # this is usefull in the expression
         self.CM_rowsum = np.sum(self.CM, 1)
@@ -232,7 +228,7 @@ class Gmean(MetricOptimizer):
 
 
 class Hmean(MetricOptimizer):
-    def __init__(self, CM, prototypes, model, DistTemp=1, lambda_min=0.6):
+    def __init__(self, CM, prototypes, model, DistTemp=1.0, lambda_min=0.6):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.recall = (np.diag(CM)/np.sum(CM, 1)).tolist()
         self.CM_rowsum = np.sum(self.CM, axis=1)
@@ -280,7 +276,7 @@ class Hmean(MetricOptimizer):
 
 
 class HmeanWithCoverage(MetricOptimizer):
-    def __init__(self, CM, prototypes, model, DistTemp=1, lambda_min=0.6,\
+    def __init__(self, CM, prototypes, model, DistTemp=1.0, lambda_min=0.6,\
                  lambdas=None, alpha=0.95, tau=0.1, lambda_max=10):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.alpha = alpha
@@ -357,7 +353,7 @@ class HmeanWithCoverage(MetricOptimizer):
 
 
 class MinHTRecall(MetricOptimizer):
-    def __init__(self, CM, prototypes, model, DistTemp=1,\
+    def __init__(self, CM, prototypes, model, DistTemp=1.0,\
                  lambdas=None, beta=1.0, val_lr=1.0, lambda_min=0.8):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.lambdas = lambdas
@@ -418,7 +414,7 @@ class MinHTRecall(MetricOptimizer):
 
 
 class MeanRecallWithHTCoverage(MetricOptimizer):
-    def __init__(self, CM, prototypes, model, DistTemp=1,\
+    def __init__(self, CM, prototypes, model, DistTemp=1.0,\
                  lambdas=None, alpha=0.95, tau=0.1, lambda_max=10, lambda_min=0.8):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.alpha = alpha
@@ -446,7 +442,6 @@ class MeanRecallWithHTCoverage(MetricOptimizer):
                             else lambda_t/(0.1 * self.num_classes) for i in range(self.num_classes)]
         self.lambda_h = lambda_h
         self.lambda_t = lambda_t
-        print("lambdas", self.lambdas)
         return
 
 
@@ -454,7 +449,6 @@ class MeanRecallWithHTCoverage(MetricOptimizer):
         '''
         returns dM/dA_{i,j}
         '''
-        print("metirc is fixed now")
         dM1_dA = np.zeros((self.num_classes, self.num_classes))
         for i, j in itertools.product(list(range(self.num_classes)),  repeat=2):
             if i==j:
@@ -497,7 +491,7 @@ class MeanRecallWithHTCoverage(MetricOptimizer):
 
 
 class HmeanWithHTCoverage(MetricOptimizer):
-    def __init__(self, CM, prototypes, model, DistTemp=1,\
+    def __init__(self, CM, prototypes, model, DistTemp=1.0,\
                  lambdas=None, alpha=0.95, tau=0.1, lambda_max=10, lambda_min=0.8):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.alpha = alpha

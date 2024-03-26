@@ -214,7 +214,7 @@ def get_metrics(outputs, labels, classes, tag="test/", probs=None):
         # prcurve = precision_recall_curve(labels, probs)
         # roc_auc_score(labels, probs, multi_class='ovo', max_fpr=None)
 
-    print("aucroc", aucroc)
+    # print("aucroc", aucroc)
     # print("prcurve", prcurve)
     metrics =   {
                 "precision": precision_avg,

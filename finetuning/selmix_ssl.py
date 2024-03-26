@@ -29,7 +29,7 @@ class SelMixSSL:
 
         # Initialization of attributes
         self.loader = {}
-        self.num_classes = num_classes
+        self.num_classes = args.num_classes
         self.args = args
         self.model = model
         self.num_eval_iter = num_eval_iter
@@ -38,12 +38,22 @@ class SelMixSSL:
         self.optimizer = None
         self.scheduler = None
         self.it = 0
-        self.classes = None
+        self.classes = [str(i) for i in range(self.num_classes)]
+        self.prior = None
+        
+        self.temperature = float(args.DistTemp) #type: ignore
+        self.objective_name = str(args.M) #type: ignore
+
+        # hyper parameters for the lagrange multiplier update rate
+        self.beta = float(args.beta) #type: ignore
+        self.alpha = float(args.alpha) #type: ignore
+        self.tau = float(args.tau) #type: ignore
+        self.val_lr = float(args.val_lr) #type: ignore
 
         # Initialize lagrange multipliers based on 
         # optimization type, if samples from 
         # R+ or from K-1 simplex
-        if "coverage" in args.M:
+        if "coverage" in self.objective_name:
             self.lambdas = [0] * self.num_classes
         else:
             self.lambdas = [1 / self.num_classes] * self.num_classes
@@ -95,7 +105,7 @@ class SelMixSSL:
         self.prior = lb_dset.prior
         print(f'[!] data loader keys: {self.loader_dict.keys()}')
 
-    def train(self, args, logger=None):
+    def train(self, args):
         """
         Train function of SelMixSSL.
 
@@ -125,7 +135,8 @@ class SelMixSSL:
                 self.save_model(f'model_iter_{self.it}.pth', save_path)
 
         # Initialize WandB logging if required
-        wandb.init(project=args.wandb_project, id=args.wandb_runid, entity=args.wandb_entity) if should_log()
+        if should_log():
+            wandb.init(project=args.wandb_project, id=args.wandb_runid, entity=args.wandb_entity) 
 
         # Set the model to training mode
         self.model.train()
@@ -152,7 +163,7 @@ class SelMixSSL:
         while self.it < args.num_train_iter:
             self.model.train()
 
-            if self.it % self.num_eval_iter == 0:
+            if self.it % 5 == 0:
                 test_metrics = self.evaluate(args=args)
                 val_metrics = self.val(args=args)
                 save_best_model()
@@ -231,7 +242,9 @@ class SelMixSSL:
                 out = self.model(x)
 
                 feats = self.model.pre_logits(x)
-                features.append(feats.cpu().detach().numpy())
+                feats = feats.cpu().detach().tolist()
+                for i in range(len(feats)):
+                    features.append(feats[i])
 
                 # Collect predictions and labels
                 preds.append(torch.argmax(out, dim=1).cpu().detach().numpy())
@@ -239,7 +252,6 @@ class SelMixSSL:
 
             # Concatenate predictions and labels
             preds, labels = (np.concatenate(preds, axis=0), np.concatenate(labels, axis=0))
-
         return labels, preds, features
 
     @torch.no_grad()
@@ -287,7 +299,8 @@ class SelMixSSL:
 
         # Compute prototypes for each class
         prototypes = np.zeros((self.num_classes, self.num_feats))
-
+        features = np.array(features)
+        print("features shape", features.shape, features)
         for class_label in range(self.num_classes):
             # Extract mean features for the current class
             feats_for_class = features[labels == class_label]
@@ -295,50 +308,51 @@ class SelMixSSL:
 
         # Get validation metrics and confusion matrix
         val_metrics, CM = get_metrics(preds, labels, self.classes, tag="val/")
+        # print(val_metrics)
 
         # Choose optimization criterion based on command-line arguments
-        if self.args.M == "mean_recall":
-            MR = MeanRecall(CM, prototypes, model, args.DistTemp, args.mask, percentile=args.percentile)
-            
-        elif self.args.M == "min_recall":
-            MR = MinRecall(CM, prototypes, model, args.DistTemp, args.mask,\
-                           self.lambdas, self.args.beta, self.args.val_lr)
-            self.lambdas = MR.lambdas
-        
-        elif self.args.M == "min_HT_recall":
-            MR = MinHTRecall(CM, prototypes, model, args.DistTemp, args.mask,\
-                           self.lambdas, self.args.beta, self.args.val_lr)
+        if self.objective_name == "mean_recall":
+            MR = MeanRecall(CM, prototypes, model, self.temperature)
+
+        elif self.objective_name == "min_recall":
+            MR = MinRecall(CM, prototypes, model, self.temperature,\
+                           self.lambdas, self.beta, self.val_lr)
             self.lambdas = MR.lambdas
 
-        elif self.args.M == "mean_recall_min_coverage":
-            MR = MeanRecallWithCoverage(CM, prototypes, self.train_model,\
-                                        args.DistTemp, args.mask, self.lambdas,\
-                                        alpha=self.args.alpha, tau=self.args.tau,
+        elif self.objective_name == "min_HT_recall":
+            MR = MinHTRecall(CM, prototypes, model, self.temperature,\
+                           self.lambdas, self.beta, self.val_lr)
+            self.lambdas = MR.lambdas
+
+        elif self.objective_name == "mean_recall_min_coverage":
+            MR = MeanRecallWithCoverage(CM, prototypes, model,\
+                                        self.temperature, self.lambdas,\
+                                        alpha=self.alpha, tau=self.tau,
                                         lambda_max=self.args.lambda_max)
             self.lambdas = MR.lambdas
-        elif self.args.M == "mean_recall_min_HT_coverage":
-            MR = MeanRecallWithHTCoverage(CM, prototypes, self.train_model,\
-                                        args.DistTemp, args.mask, self.lambdas,\
-                                        alpha=self.args.alpha, tau=self.args.tau,
-                                        lambda_max=self.args.lambda_max)
+        elif self.objective_name == "mean_recall_min_HT_coverage":
+            MR = MeanRecallWithHTCoverage(CM, prototypes, model,\
+                                          self.temperature, self.lambdas,\
+                                          alpha=self.alpha, tau=self.tau,
+                                          lambda_max=self.args.lambda_max)
             self.lambdas = MR.lambdas
-        elif self.args.M == "HM_min_HT_coverage":
+        elif self.objective_name == "HM_min_HT_coverage":
             print("HM with HT coverage constraint")
-            MR = HMWithHTCoverage(CM, prototypes, self.train_model,\
-                                        args.DistTemp, args.mask, self.lambdas,\
-                                        alpha=self.args.alpha, tau=self.args.tau,
-                                        lambda_max=self.args.lambda_max)
+            MR = HmeanWithHTCoverage(CM, prototypes, self.train_model,\
+                                     self.temperature, self.lambdas,\
+                                     alpha=self.alpha, tau=self.tau,
+                                     lambda_max=self.args.lambda_max)
             self.lambdas = MR.lambdas
-        elif self.args.M == "g_mean":
-            MR = Gmean(CM, prototypes, self.train_model, args.DistTemp, args.mask)
+        elif self.objective_name == "g_mean":
+            MR = Gmean(CM, prototypes, model, self.temperature)
 
-        elif self.args.M == "h_mean":
-            MR = Hmean(CM, prototypes, self.train_model, args.DistTemp, args.mask)
-        
-        elif self.args.M == "HM_min_coverage":
-            MR = HMWithCoverage(CM, prototypes, self.train_model,\
-                                args.DistTemp, args.mask, self.lambdas,\
-                                alpha=self.args.alpha, tau=self.args.tau,
+        elif self.objective_name == "h_mean":
+            MR = Hmean(CM, prototypes, model, self.temperature)
+
+        elif self.objective_name == "HM_min_coverage":
+            MR = HmeanWithCoverage(CM, prototypes, model,\
+                                self.temperature,\
+                                alpha=self.alpha, tau=self.tau,\
                                 lambda_max=self.args.lambda_max)
             self.lambdas = MR.lambdas
 
@@ -347,7 +361,8 @@ class SelMixSSL:
 
         # Initialize FastJointSampler for Mixup
         JS = FastJointSampler(self.lb_dataset, self.ulb_dataset, model,
-                              samp_dist=self.P, verbose=False, batch_size=args.batch_size)
+                              samp_dist=self.P, batch_size=args.batch_size, 
+                              semi_supervised=False)
 
         # Set objective and update MixupSampler in loader_dict
         self.objective = MR
@@ -379,16 +394,16 @@ class SelMixSSL:
             load_path (str): Path to the pre-trained model checkpoint.
         """
         checkpoint = torch.load(load_path)
+        print(checkpoint.keys())
         self.model = self.model.module if hasattr(self.model, 'module') else self.model
-        
+        self.model.load_state_dict(checkpoint['eval_model'])
         for key in checkpoint.keys():
             if hasattr(self, key) and getattr(self, key) is not None:
-                if 'model' in key:
+                if 'eval_model' in key:
                     self.model.load_state_dict(checkpoint[key])
+                    print("checkpint loaded")
                 elif key == 'it':
                     self.it = checkpoint[key]
-                else:
-                    getattr(self, key).load_state_dict(checkpoint[key])
                 print(f"Checkpoint Loading: {key} is LOADED")
             else:
                 print(f"Checkpoint Loading: {key} is **NOT** LOADED")
