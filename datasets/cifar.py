@@ -80,6 +80,7 @@ class CIFAR_SSL_LT_Dataset:
         # Load and preprocess the dataset
         self.get_data()
         self.lb_data, self.lb_targets, self.ulb_data, self.ulb_targets = self.split()
+        
         self.apply_longtail_sampling()
 
         if self.include_train:
@@ -252,11 +253,13 @@ class CIFAR_SSL_LT_Dataset:
 
         # Calculate the imbalance factor for each class
         lamda = math.exp(-1 * math.log(self.imbalance_u) / (self.num_classes - 1))
+        print("M1 is ", self.M1)
         for i in range(self.num_classes):
             if self.imbalance_u > 1:
-                num_samples = max(int(lamda ** i * self.M1), int(self.M1 / self.imbalance_u))
+                num_samples = max(int((lamda ** i) * self.M1), int(self.M1 / self.imbalance_u))
+                print(num_samples)
             else:
-                num_samples = min(int(lamda ** i * self.M1), int(self.M1 / self.imbalance_u))
+                num_samples = min(int((lamda ** i) * self.M1), int(self.M1 / self.imbalance_u))
             dataset_class_wise[i] = dataset_class_wise[i][:num_samples]
 
         # Combine the selected samples from each class

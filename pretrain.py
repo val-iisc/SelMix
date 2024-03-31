@@ -7,6 +7,7 @@ import cgi
 
 # Third-Party Library Imports
 from models.wrapper import TimmModelWrapper
+from models.nets import wrn
 import wandb
 import numpy as np
 import torch
@@ -110,9 +111,15 @@ def main_worker(gpu, ngpus_per_node, args):
     logger = get_logger(args.save_name, save_path, logger_level)
     logger.warning(f"USE GPU: {args.gpu} for training")
 
-    net_timm = timm.create_model(args.net, num_classes=args.num_classes)
-    
-    net = TimmModelWrapper(net_timm, 1.0)
+    if args.net in timm.list_models():
+        base_net = timm.create_model(args.net, num_classes=args.num_classes)
+    if "wide_resnet28_2":
+        net_builder = wrn.build_WideResNet(depth=args.depth, widen_factor=args.widen_factor,
+                                           bn_momentum=args.bn_momentum, leaky_slope=args.leaky_slope,
+                                           dropRate=args.dropout)
+        base_net = net_builder.build(args.num_classes)
+    net = TimmModelWrapper(base_net, 1.0)
+
     model = FixMatch(net,
                      args.num_classes,
                      args.ema_m,
@@ -175,7 +182,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # Construct Dataset & DataLoader
     if 'cifar' in args.dataset:
         dataset = CIFAR_SSL_LT_Dataset(name=args.dataset, num_classes=args.num_classes, data_dir='./data',
-                                    N1=args.N1, M1=args.M1, include_train=False, uratio=args.uratio, 
+                                    N1=args.N1, M1=args.M1, include_train=args.include_train, uratio=args.uratio, 
                                     imbalance_l=args.imbalance_l, imbalance_u=args.imbalance_u, use_strong_transform=True)
 
         lb_dset, ulb_dset, val_dset, test_dset  = dataset.return_splits()
@@ -294,6 +301,7 @@ if __name__ == "__main__":
     parser.add_argument('--depth', type=int, default=28)
     parser.add_argument('--widen_factor', type=int, default=2)
     parser.add_argument('--leaky_slope', type=float, default=0.1)
+    parser.add_argument('--bn_momentum', type=float, default=0.01)
     parser.add_argument('--dropout', type=float, default=0.0)
     
     '''
@@ -309,7 +317,6 @@ if __name__ == "__main__":
     parser.add_argument('--imbalance_u', type=float, default=1.0)
     parser.add_argument('--N1', type=int, default=1)
     parser.add_argument('--M1', type=int, default=1)
-    parser.add_argument('--lt', action='store_true')
     parser.add_argument('--include_train', action='store_true')
     '''
     multi-GPUs & Distrbitued Training

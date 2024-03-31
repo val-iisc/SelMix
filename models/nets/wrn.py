@@ -87,25 +87,17 @@ class WideResNet(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
 
-    def forward(self, x, u):
-        feats_x = self.get_feats(x)
-        feats_u = self.get_feats(u)
-        batch_size = feats_u.shape[0]
-        mixup_coeff = torch.distributions.uniform.Uniform(0.6,1).sample([batch_size]).cuda()
-        feats = (feats_x.T * mixup_coeff).T + (feats_u.T * (1-mixup_coeff)).T 
-        return self.fc(feats)
+    def forward(self, x):
+        x = self.forward_features(x)
+        x = self.forward_head(x)
+        return x
 
-    def infer(self, x):
-        out = self.conv1(x)
-        out = self.block1(out)
-        out = self.block2(out)
-        out = self.block3(out)
-        out = self.relu(self.bn1(out))
-        out = F.avg_pool2d(out, 8)
-        out = out.view(-1, self.nChannels)
-        return self.fc(out)
 
-    def get_feats(self, x):
+    def forward_head(self, x, pre_logits=False):
+        return x if pre_logits else self.fc(x)
+    
+
+    def forward_features(self, x):
         out = self.conv1(x)
         out = self.block1(out)
         out = self.block2(out)
@@ -114,8 +106,12 @@ class WideResNet(nn.Module):
         out = F.avg_pool2d(out, 8)
         out = out.view(-1, self.nChannels)
         return out
-    def infer_feats(self, x):
+
+    def classifier(self, x):
         return self.fc(x)
+    
+    def get_classifier(self):
+        return self.fc
 
 class build_WideResNet:
     def __init__(self, depth=28, widen_factor=2, bn_momentum=0.01, leaky_slope=0.0, dropRate=0.0):

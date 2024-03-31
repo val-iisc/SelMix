@@ -15,6 +15,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from models.wrapper import TimmModelWrapper
+from models.nets import wrn
 from utils import net_builder, get_logger, count_parameters
 from train_utils import TBLog, get_finetune_SGD
 from finetuning.selmix_ssl import SelMixSSL
@@ -106,19 +107,29 @@ def main_worker(gpu, ngpus_per_node, args):
     logger = get_logger(args.save_name, save_path, logger_level)
     logger.warning(f"USE GPU: {args.gpu} for training")
     
-    net_timm = timm.create_model(args.net, num_classes=args.num_classes)
-    net = TimmModelWrapper(net_timm, 0.6)
+    if args.net in timm.list_models():
+        print("here")
+        base_net = timm.create_model(args.net, num_classes=args.num_classes)
+    if "wide_resnet28_2" == args.net:
+        net_builder = wrn.build_WideResNet(depth=args.depth, widen_factor=args.widen_factor,
+                                           bn_momentum=args.bn_momentum, leaky_slope=args.leaky_slope,
+                                           dropRate=args.dropout)
+        base_net = net_builder.build(args.num_classes)
+    net = TimmModelWrapper(base_net, 0.6)
+
     for module in net.model.modules():
         if isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.BatchNorm1d):
+            print("changing")
             module.momentum = 0.0
             module.track_running_stats = False
             module.requires_grad_ = False
-    if 'bn' in [name for name, _ in net_timm.named_modules()]:
+
+    if 'bn' in [name for name, _ in net.model.named_modules()]:
         # Set the Batch Normalization momentum
         # Freezing bn update to preserve the 
         # condition of fixed prototype assumption
         bn_momentum = 0.0  
-        for module in net_timm.modules():
+        for module in net.model.modules():
             if isinstance(module, nn.BatchNorm2d):
                 module.momentum = bn_momentum
                 module.requires_grad_ = False
@@ -309,6 +320,7 @@ if __name__ == "__main__":
     parser.add_argument('--widen_factor', type=int, default=2)
     parser.add_argument('--leaky_slope', type=float, default=0.1)
     parser.add_argument('--dropout', type=float, default=0.0)
+    parser.add_argument('--bn_momentum', type=float, default=0.00)
     parser.add_argument('--min_gain', type=float, default=0.0)
     parser.add_argument('--beta', type=float, default=0.0)
     parser.add_argument('--alpha', type=float, default=0.95)
