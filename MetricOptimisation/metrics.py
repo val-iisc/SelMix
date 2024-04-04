@@ -43,15 +43,15 @@ class MeanRecall(MetricOptimizer):
             logits[i, j] = np.sum(MetricGainRate * self.LogitChangeRate[i, j, :, :])
         
         mask = (logits > 0).astype(float)
-        
+        print("max gain:   ", np.max(logits))
         P = softmax(logits/self.DistTemp) * mask
-        P = (P + 1e-8 )/(np.sum(P + 1e-8 ))
+        P = (P + 1e-10 )/(np.sum(P + 1e-10 ))
         return P, logits
 
 
 class MinRecall(MetricOptimizer):
     def __init__(self, CM, prototypes, model, DistTemp=1.0,\
-                 lambdas=None, beta=1.0, val_lr=1.0, lambda_min=0.8):
+                 lambdas=None, beta=1.0, val_lr=1.0, lambda_min=0.6):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.lambdas = lambdas
         self.beta = beta
@@ -105,7 +105,7 @@ class MinRecall(MetricOptimizer):
 
 class MeanRecallWithCoverage(MetricOptimizer):
     def __init__(self, CM, prototypes, model, DistTemp=1.0,\
-                 lambdas=None, alpha=0.95, tau=0.1, lambda_max=10, lambda_min=0.8):
+                 lambdas=None, alpha=0.95, tau=0.1, lambda_max=10, lambda_min=0.6):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.alpha = alpha
         self.tau = tau
@@ -353,7 +353,7 @@ class HmeanWithCoverage(MetricOptimizer):
 
 class MinHTRecall(MetricOptimizer):
     def __init__(self, CM, prototypes, model, DistTemp=1.0,\
-                 lambdas=None, beta=1.0, val_lr=1.0, lambda_min=0.8):
+                 lambdas=None, beta=1.0, val_lr=1.0, lambda_min=0.6):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.lambdas = lambdas
         self.beta = beta
@@ -401,12 +401,12 @@ class MinHTRecall(MetricOptimizer):
     def SamplingDistribution(self):
         logits = np.zeros((self.num_classes, self.num_classes))
         MetricGainRate = self.MetricGainRate
-
+        
         for i, j in itertools.product(list(range(self.num_classes)),  repeat=2):
             logits[i, j] = np.sum(MetricGainRate * self.LogitChangeRate[i, j, :, :])
 
         mask = (logits > 0).astype(float)
-
+        
         P = softmax(logits/self.DistTemp) * mask
         P = (P + 1e-8 )/(np.sum(P + 1e-8 ))
         return P, logits
@@ -414,7 +414,7 @@ class MinHTRecall(MetricOptimizer):
 
 class MeanRecallWithHTCoverage(MetricOptimizer):
     def __init__(self, CM, prototypes, model, DistTemp=1.0,\
-                 lambdas=None, alpha=0.95, tau=0.1, lambda_max=10, lambda_min=0.8):
+                 lambdas=None, alpha=0.95, tau=0.1, lambda_max=10, lambda_min=0.6):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.alpha = alpha
         self.tau = tau
@@ -491,7 +491,7 @@ class MeanRecallWithHTCoverage(MetricOptimizer):
 
 class HmeanWithHTCoverage(MetricOptimizer):
     def __init__(self, CM, prototypes, model, DistTemp=1.0,\
-                 lambdas=None, alpha=0.95, tau=0.1, lambda_max=10, lambda_min=0.8):
+                 lambdas=None, alpha=0.95, tau=0.1, lambda_max=10, lambda_min=0.6):
         super().__init__(CM, prototypes, model, DistTemp=DistTemp, lambda_min=lambda_min)
         self.alpha = alpha
         self.tau = tau

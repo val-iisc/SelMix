@@ -120,7 +120,7 @@ def main_worker(gpu, ngpus_per_node, args):
     for module in net.model.modules():
         if isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.BatchNorm1d):
             print("changing")
-            module.momentum = 0.0
+            module.momentum = args.bn_momentum
             module.track_running_stats = False
             module.requires_grad_ = False
 
@@ -128,11 +128,12 @@ def main_worker(gpu, ngpus_per_node, args):
         # Set the Batch Normalization momentum
         # Freezing bn update to preserve the 
         # condition of fixed prototype assumption
-        bn_momentum = 0.0  
+        bn_momentum = args.bn_momentum
         for module in net.model.modules():
             if isinstance(module, nn.BatchNorm2d):
                 module.momentum = bn_momentum
                 module.requires_grad_ = False
+                module.track_running_stats = False
 
     # SET FixMatch: class FixMatch in models.fixmatch
     model = SelMixSSL(net, args)
@@ -278,7 +279,7 @@ if __name__ == "__main__":
     '''
     parser.add_argument('--M', default="mean_recall", type=str)
     parser.add_argument('--epoch', type=int, default=1)
-    parser.add_argument('--num_train_iter', type=int, default=2**20, 
+    parser.add_argument('--num_train_iter', type=int, default=1000, 
                         help='total number of training iterations')
     parser.add_argument('--num_eval_iter', type=int, default=10000,
                         help='evaluation frequency')

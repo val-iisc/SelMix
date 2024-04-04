@@ -35,6 +35,7 @@ class SelMixSSL:
         self.classes = [str(i) for i in range(self.num_classes)]
         self.prior = None
         
+        self.MaxGain = [1000]
         self.temperature = float(args.DistTemp)
         self.objective_name = str(args.M)
 
@@ -114,7 +115,13 @@ class SelMixSSL:
 
         while self.it < args.num_train_iter:
             self.model.train()
-
+            for module in self.model.model.modules():
+                if isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.BatchNorm1d):
+                    # print("changing")
+                    module.momentum = args.bn_momentum
+                    module.track_running_stats = False
+                    module.requires_grad_ = False
+            
             if self.it % 50 == 0:
                 test_metrics = self.evaluate()
                 val_metrics = self.val(args=args)
@@ -192,7 +199,9 @@ class SelMixSSL:
 
         labels, preds, _ = self.feedforward(eval_loader)
         metrics, _ = get_metrics(preds, labels, self.classes, tag="test/")
-        print("Accuracy at iteration:", self.it, "is : ", metrics["test/accuracy"])
+        print("Acc:", self.it, "is : ", metrics["test/mean_recall"])
+        print("Acc:", self.it, "is : ", metrics["test/min_coverage"])
+        
         return metrics
 
     @torch.no_grad()
@@ -258,6 +267,10 @@ class SelMixSSL:
             self.lambdas = objective.lambdas
 
         self.P = objective.P
+        self.MaxGain.append(np.max(objective.G))
+
+        if self.has_converged():
+            self.it = self.args.num_train_iter -1
 
         JS = FastJointSampler(self.lb_dataset, self.ulb_dataset, model,
                               samp_dist=self.P, batch_size=args.batch_size, 
@@ -265,7 +278,7 @@ class SelMixSSL:
 
         self.objective = objective
         self.loader_dict["MixupSampler"] = JS
-
+        print(" val Acc:", self.it, "is : ", val_metrics["val/mean_recall"])
         return val_metrics
 
     def save_model(self, save_name, save_path):
@@ -276,6 +289,13 @@ class SelMixSSL:
                     'it': self.it}, save_filename)
 
         print(f"Model saved: {save_filename}")
+
+    def has_converged(self, window_size=10, tolerance_percentage=0.05):
+        if len(self.MaxGain) < window_size:
+            return False
+        window = self.MaxGain[-window_size:]
+        mean = sum(window) / window_size
+        return abs(mean - self.MaxGain[-1]) < tolerance_percentage * abs(mean)
 
     def load_model(self, load_path):
         checkpoint = torch.load(load_path)
