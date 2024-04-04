@@ -1,5 +1,6 @@
 # SelMix
 code for our paper selmix
+
 ## Introduction
 
 ## How it works and eq. 
@@ -104,5 +105,27 @@ for epoch in range(num_epochs):
 
 ```
 ## results
+### Pretraining Checkpoints
+We provide the seed 0 pre-training checkpoints for Fixmatch and Fixmatch w/ LA loss 
+
+| Dataset  | N1 = 1500, M1 = 3000 | N1 = 1500, M1 = 3000 | N1 = 1500, M1 = 30  |
+|----------|-----------------------|-----------------------|-----------------------|
+|          | $\rho_l = 100, \rho_u = 100$ | $\rho_l = 100, \rho_u = 1$ | $\rho_l = 100, \rho_u = 0.01$ |
+|     Fixmatch     | [Google Drive Link](insert_link_here) | [Google Drive Link](insert_link_here) | [Google Drive Link](insert_link_here) |
+|     w/ LA     | [Google Drive Link](insert_link_here) | [Google Drive Link](insert_link_here) | [Google Drive Link](insert_link_here) |
+
+
+| Dataset  | N1 = 150, M1 = 300  |
+|----------|---------------------|
+|          | $\rho_l = 10, \rho_u = 10$ |
+|    FixMatch      | [Google Drive Link](insert_link_here) |
+|    w/ LA      | [Google Drive Link](insert_link_here) |
+
+
+| Dataset  | N1 = 150, M1 = Unk |
+|----------|---------------------|
+|          | $\rho_l = 10, \rho_u = unk$ |
+|    FixMatch      | [Google Drive Link](insert_link_here) |
+|    w/ LA      | [Google Drive Link](insert_link_here) |
 
 ## citation
