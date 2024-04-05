@@ -1,5 +1,5 @@
 save_dir: './saved_models'
-save_name: 'CIFAR10_N1-1500_M1-3000_IBRL-100_IBRU-1_seed-0'
+save_name: 'CIFAR10_N1-1500_M1-3000_IBRL-100_IBRU-100-LA-seed0-rerun'
 resume: false
 load_path: null
 overwrite: true
@@ -16,14 +16,14 @@ T: 0.5
 p_cutoff: 0.95
 ema_m: 0.999
 ulb_loss_ratio: 1.0
-LA: false
+LA: true
 
 lr: 0.03
 momentum: 0.9
 weight_decay: 0.0005
 amp: true
 
-net: 'wide_resnet28_2'
+net: 'WideResNet'
 net_from_name: false
 depth: 28
 widen_factor: 2
@@ -37,19 +37,19 @@ train_sampler: 'RandomSampler'
 num_classes: 10
 num_workers: 1
 imbalance_l: 100
-imbalance_u: 1
+imbalance_u: 100
 N1: 1500
 M1: 3000
 include_train: false
 
 world_size: 1
 rank: 0
-dist_url: 'tcp://127.0.0.1:10012'
+dist_url: 'tcp://127.0.0.1:10009'
 dist_backend: 'nccl'
 seed: 0
 gpu: null
 multiprocessing_distributed: true
 
-wandb_project: 'ICML-CIFAR10-IBRLU-100-1'
+wandb_project: 'ICML-CIFAR10-IBRLU-100-100'
 wandb_entity: 'aaai-23'
-wandb_runid: 'CIFAR10_N1-1500_M1-3000_IBRL-100_IBRU-1_seed-0'
+wandb_runid: 'CIFAR10_N1-1500_M1-3000_IBRL-100_IBRU-100_LA_bn-0.001_seed-0-rerunverify'

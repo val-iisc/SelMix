@@ -1,5 +1,5 @@
 save_dir: './saved_models'
-save_name: 'CIFAR10_N1-1500_M1-30_IBRL-100_IBRU-0.01_LA_seed-0'
+save_name: 'CIFAR10_N1-1500_M1-30_IBRL-100_IBRU-0.01_seed-0'
 resume: false
 load_path: null
 overwrite: true
@@ -16,7 +16,7 @@ T: 0.5
 p_cutoff: 0.95
 ema_m: 0.999
 ulb_loss_ratio: 1.0
-LA: true
+LA: false
 
 lr: 0.03
 momentum: 0.9

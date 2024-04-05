@@ -1,5 +1,5 @@
 save_dir: './saved_models'
-save_name: 'CIFAR10_N1-1500_M1-3000_IBRL-100_IBRU-100-LA-seed0-rerun'
+save_name: 'CIFAR10_N1-1500_M1-3000_IBRL-100_IBRU-100_seed-0'
 resume: false
 load_path: null
 overwrite: true
@@ -16,7 +16,7 @@ T: 0.5
 p_cutoff: 0.95
 ema_m: 0.999
 ulb_loss_ratio: 1.0
-LA: true
+LA: false
 
 lr: 0.03
 momentum: 0.9
@@ -52,4 +52,4 @@ multiprocessing_distributed: true
 
 wandb_project: 'ICML-CIFAR10-IBRLU-100-100'
 wandb_entity: 'aaai-23'
-wandb_runid: 'CIFAR10_N1-1500_M1-3000_IBRL-100_IBRU-100_LA_bn-0.001_seed-0-rerunverify'
+wandb_runid: 'CIFAR10_N1-1500_M1-3000_IBRL-100_IBRU-100_seed-0'
