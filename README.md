@@ -1,7 +1,25 @@
 # SelMix
-code for our paper selmix
+
+## Selective Mixup Fine-Tuning for Optimizing Non-Decomposable Objectives
+Shrinivas Ramasubramanian<sup>* </sup> , Harsh Rangwani <sup>* </sup> , Sho Takemori <sup>* </sup>, Kunal Samanta, Yuhei Umeda, Venkatesh Babu Radhakrishnan
+
+![image info](./overview.png)
+
+This repository contains code for our [paper](https://openreview.net/forum?id=rxVBKhyfSo).
+```bib
+@inproceedings{
+ramasubramanian2024selective,
+title={Selective Mixup Fine-Tuning for Optimizing Non-Decomposable Metrics},
+author={Shrinivas Ramasubramanian and Harsh Rangwani and Sho Takemori and Kunal Samanta and Yuhei Umeda and Venkatesh Babu Radhakrishnan},
+booktitle={The Twelfth International Conference on Learning Representations},
+year={2024},
+}
+```
+
+
 
 ## Introduction
+
 
 ## How it works and eq. 
 
