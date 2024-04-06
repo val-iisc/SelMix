@@ -52,4 +52,4 @@ multiprocessing_distributed: true
 
 wandb_project: 'ICML-CIFAR10-IBRLU-100-0.01'
 wandb_entity: 'aaai-23'
-wandb_runid: 'CIFAR10_N1-1500_M1-30_IBRL-100_IBRU-0.01_seed-0'
+wandb_runid: 'CIFAR10_N1-1500_M1-30_IBRL-100_IBRU-0.01_LA_seed-0'

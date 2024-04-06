@@ -42,13 +42,14 @@ N1: 1500
 M1: 3000
 include_train: false
 
-world_size: 1
-rank: 0
-dist_url: 'tcp://127.0.0.1:10012'
-dist_backend: 'nccl'
+# multi-GPUs & Distributed Training
+world_size: -1
+rank: -1
+dist-url: 'tcp://127.0.0.1:10001'
+dist-backend: 'nccl'
 seed: 0
 gpu: null
-multiprocessing_distributed: true
+multiprocessing_distributed: false
 
 wandb_project: 'ICML-CIFAR10-IBRLU-100-1'
 wandb_entity: 'aaai-23'
