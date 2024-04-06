@@ -10,10 +10,10 @@ nestrov: false
 freeze_backbone: false
 
 # Training Configuration of FixMatch
-M: 'HM_min_coverage'
+M: 'h_mean'
 epoch: 1
 num_train_iter: 10000
-num_eval_iter: 50
+num_eval_iter: 100
 num_labels: 15000
 batch_size: 64
 eval_batch_size: 1024
@@ -29,7 +29,7 @@ uratio: 2
 # Optimizer configurations
 lr: 0.0003
 min_lr: 0.00
-val_lr: 50
+val_lr: 0.1
 momentum: 0.9
 damp: 0.9
 weight_decay: 0.0005
@@ -50,7 +50,7 @@ bn_momentum: 0.00
 min_gain: 0.0
 beta: 0.0
 alpha: 0.95
-tau: 0.01
+tau: 0.1
 lambda_max: 100.0
 
 # Data Configurations
@@ -82,6 +82,6 @@ gpu: null
 multiprocessing_distributed: false
 
 # wandb logging
-wandb_project: 'ICML-CIFAR10-IBRLU-100-1'
+wandb_project: 'ICML-CIFAR10-IBRLU-100-100'
 wandb_entity: 'aaai-23'
-wandb_runid: 'hm_recall_min_coverage_verify_seed-0'
+wandb_runid: 'hm_recall_verify_seed-0'

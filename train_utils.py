@@ -103,6 +103,7 @@ def get_finetune_SGD(net, opt='SGD', lr=0.001, weight_decay=5e-4, freeze_backbon
                 param.requires_grad=False
             if 'bn' in name:
                 param.requires_grad=False
+                no_decay.append(param)
                 pass
             else:
                 decay.append(param)
@@ -111,7 +112,7 @@ def get_finetune_SGD(net, opt='SGD', lr=0.001, weight_decay=5e-4, freeze_backbon
                           {'params': fc_no_decay, 'weight_decay': 0.0, "lr": lr}]
     else:
         per_param_args = [{'params': decay, "lr":  lr/10.0},
-                          {'params': no_decay, 'weight_decay': 0.0, "lr": lr/10.0},
+                          {'params': no_decay, 'weight_decay': 0.0, "lr": 0.0},
                           {'params': fc, "lr": lr},
                           {'params': fc_no_decay, 'weight_decay': 0.0, "lr": lr}]
     

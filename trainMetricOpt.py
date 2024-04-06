@@ -1,5 +1,6 @@
 #import needed library
 import os
+import yaml
 import logging
 import random
 import warnings
@@ -21,7 +22,7 @@ from train_utils import TBLog, get_finetune_SGD
 from finetuning.selmix_ssl import SelMixSSL
 from datasets.cifar import CIFAR_SSL_LT_Dataset
 from datasets.data_utils import get_data_loader
-
+from configs.yaml_object import YAMLObject
 
 
 def main(args):
@@ -195,7 +196,7 @@ def main_worker(gpu, ngpus_per_node, args):
     if 'cifar' in args.dataset:
         dataset = CIFAR_SSL_LT_Dataset(name=args.dataset, num_classes=args.num_classes, data_dir='./data',
                                     N1=args.N1, M1=args.M1, include_train=False, uratio=args.uratio, 
-                                    imbalance_l=args.imbalance_l, imbalance_u=args.imbalance_u)
+                                    imbalance_l=args.imbalance_l, imbalance_u=args.imbalance_u, use_strong_transform=False)
 
         lb_dset, ulb_dset, val_dset, test_dset  = dataset.return_splits()
 
@@ -262,125 +263,18 @@ def main_worker(gpu, ngpus_per_node, args):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='')
-    
+    warnings.filterwarnings("ignore")
     '''
     Saving & loading of the model.
     '''
-    parser.add_argument('--save_dir', type=str, default='./saved_models')
-    parser.add_argument('--save_name', type=str, default='fixmatch')
-    parser.add_argument('--resume', action='store_true')
-    parser.add_argument('--load_path', type=str, default=None)
-    parser.add_argument('--overwrite', action='store_true')
-    parser.add_argument('--nestrov', action='store_true')
-    parser.add_argument('--freeze_backbone', action='store_true')
-    
-    '''
-    Training Configuration of FixMatch
-    '''
-    parser.add_argument('--M', default="mean_recall", type=str)
-    parser.add_argument('--epoch', type=int, default=1)
-    parser.add_argument('--num_train_iter', type=int, default=1000, 
-                        help='total number of training iterations')
-    parser.add_argument('--num_eval_iter', type=int, default=10000,
-                        help='evaluation frequency')
-    parser.add_argument('--num_labels', type=int, default=4000)
-    parser.add_argument('--batch_size', type=int, default=64,
-                        help='total number of batch size of labeled data')
-    parser.add_argument('--eval_batch_size', type=int, default=1024,
-                        help='batch size of evaluation data loader (it does not affect the accuracy)')
-    
-    parser.add_argument('--DistTemp', type=float, default=1.0)
-    parser.add_argument('--percentile', type=float, default=100.0)
-    parser.add_argument('--ema_m', type=float, default=0.999, help='ema momentum for model')
-    parser.add_argument('--ema_v', type=float, default=1.0, help='ema momentum for model')
-    parser.add_argument('--mixup_lambda_min', type=float, default=0.6)
-    parser.add_argument('--filter', action='store_true', help='use mixed precision training or not')
-    parser.add_argument('--conf_thresh', type=float, default=None)
-    parser.add_argument('--uratio', type=int, default=7,
-                        help='the ratio of unlabeled data to labeld data in each mini-batch')
-
-    '''
-    Optimizer configurations
-    '''
-    parser.add_argument('--lr', type=float, default=0.0003)
-    parser.add_argument('--min_lr', type=float, default=0.00)
-    parser.add_argument('--val_lr', type=float, default=0.1)
-    parser.add_argument('--momentum', type=float, default=0.9)
-    parser.add_argument('--damp', type=float, default=0.9)
-    parser.add_argument('--weight_decay', type=float, default=5e-4)
-    parser.add_argument('--amp', action='store_true', help='use mixed precision training or not')
-    parser.add_argument('--p_ema', type=float, default=1.0)
-    parser.add_argument('--T', type=float, default=1.0)
-    '''
-    Backbone Net Configurations
-    '''
-    parser.add_argument('--net', type=str, default='WideResNet')
-    parser.add_argument('--update_type', type=str, default='EG')
-    parser.add_argument('--net_from_name', type=bool, default=False)
-    parser.add_argument('--depth', type=int, default=28)
-    parser.add_argument('--widen_factor', type=int, default=2)
-    parser.add_argument('--leaky_slope', type=float, default=0.1)
-    parser.add_argument('--dropout', type=float, default=0.0)
-    parser.add_argument('--bn_momentum', type=float, default=0.00)
-    parser.add_argument('--min_gain', type=float, default=0.0)
-    parser.add_argument('--beta', type=float, default=0.0)
-    parser.add_argument('--alpha', type=float, default=0.95)
-    parser.add_argument('--tau', type=float, default=0.1)
-    parser.add_argument('--lambda_max', type=float, default=100.0)
-
-    '''
-    Data Configurations
-    '''
-
-    parser.add_argument('--data_dir', type=str, default='./data')
-    parser.add_argument('--dataset', type=str, default='cifar10')
-    parser.add_argument('--train_sampler', type=str, default='RandomSampler')
-    parser.add_argument('--num_classes', type=int, default=10)
-    parser.add_argument('--num_workers', type=int, default=1)
-    parser.add_argument('--imbalance_l', type=float, default=1.0)
-    parser.add_argument('--frac', type=float, default=1.0)
-    parser.add_argument('--imbalance_u', type=float, default=1.0)
-    parser.add_argument('--size', type=int, default=32)
-    parser.add_argument('--N1', type=int, default=1)
-    parser.add_argument('--M1', type=int, default=1)
-    parser.add_argument('--lt', action='store_true')
-    parser.add_argument('--train_backbone', action='store_true')
-    parser.add_argument('--mask', action='store_true')
-    parser.add_argument('--cutmix', action='store_true')
-    parser.add_argument('--puzzlemix', action='store_true')
-    parser.add_argument('--vmix', action='store_true')
-    '''
-    multi-GPUs & Distrbitued Training
-    '''
-    
-    ## args for distributed training (from https://github.com/pytorch/examples/blob/master/imagenet/main.py)
-    parser.add_argument('--world-size', default=-1, type=int,
-                        help='number of nodes for distributed training')
-    parser.add_argument('--rank', default=-1, type=int,
-                        help='**node rank** for distributed training')
-    parser.add_argument('--dist-url', default='tcp://127.0.0.1:10001', type=str,
-                        help='url used to set up distributed training')
-    parser.add_argument('--dist-backend', default='nccl', type=str,
-                        help='distributed backend')
-    parser.add_argument('--seed', default=0, type=int,
-                        help='seed for initializing training. ')
-    parser.add_argument('--gpu', default=None, type=int,
-                        help='GPU id to use.')
-    parser.add_argument('--multiprocessing-distributed', action='store_true',
-                        help='Use multi-processing distributed training to launch '
-                             'N processes per node, which has N GPUs. This is the '
-                             'fastest way to use PyTorch for either single node or '
-                             'multi node data parallel training')
-
-    '''
-    wandb logging
-    '''
-    parser.add_argument('--wandb-project', default="FixMatch",
-                        help='directory to output the result', type=str)
-    parser.add_argument('--wandb-entity', default="stablegradients",
-                        help='directory to output the result', type=str)
-    parser.add_argument('--wandb-runid', default="maxmin_recall", type=str)
-    parser.add_argument('--opt', default="SGD", type=str)
-
+    parser.add_argument('--config_file', type=str, default='./configs/sample.yaml')
     args = parser.parse_args()
-    main(args)
+    with open(args.config_file, "r") as file:
+        data = yaml.safe_load(file)
+
+    # Convert dictionary to object
+    yaml_object = YAMLObject(**data)
+    print(data)
+    
+    
+    main(yaml_object)

@@ -128,4 +128,10 @@ We provide the seed 0 pre-training checkpoints for Fixmatch and Fixmatch w/ LA l
 |    FixMatch      | [Google Drive Link](insert_link_here) |
 |    w/ LA      | [Google Drive Link](insert_link_here) |
 
+## How to run
+Run the following command 
+```bash 
+foo@bar:$ python trainMetricOpt.py --config_file <your config file>
+```
+
 ## citation

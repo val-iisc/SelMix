@@ -82,7 +82,7 @@ gpu: null
 multiprocessing_distributed: false
 
 # wandb logging
-wandb_project: 'ICML-CIFAR10-IBRLU-100-1'
+wandb_project: 'ICML-CIFAR10-IBRLU-100-100'
 wandb_entity: 'aaai-23'
 wandb_runid: 'min_recall_verify_seed-0'
 
