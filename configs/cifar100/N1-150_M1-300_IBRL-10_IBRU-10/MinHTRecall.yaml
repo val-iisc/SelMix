@@ -1,0 +1,87 @@
+# config.yaml
+save_dir: './saved_models'
+save_name: 'fixmatch'
+resume: true
+load_path: './saved_models/CIFAR100_N1-150_M1-300_IBRL-10_IBRU-10-LA-seed0-rerun/model_iter:_1000000_.pth'
+overwrite: true
+nestrov: false
+freeze_backbone: false
+
+M: 'min_HT_recall'
+epoch: 1
+num_train_iter: 10000
+num_eval_iter: 50
+num_labels: 15000
+batch_size: 64
+eval_batch_size: 1024
+DistTemp: 0.05
+percentile: 100.0
+ema_m: 0.999
+ema_v: 1.0
+mixup_lambda_min: 0.6
+filter: false
+conf_thresh: null
+uratio: 2
+
+# Optimizer configurations
+lr: 0.0003
+min_lr: 0.00
+val_lr: 50
+momentum: 0.9
+damp: 0.9
+weight_decay: 0.0005
+amp: false
+p_ema: 1.0
+T: 1.0
+opt: 'SGD'
+
+# Backbone Net Configurations
+net: 'wide_resnet28_2'
+update_type: 'EG'
+net_from_name: false
+depth: 28
+widen_factor: 2
+leaky_slope: 0.1
+dropout: 0.0
+bn_momentum: 0.00
+min_gain: 0.0
+beta: 0.0
+alpha: 0.95
+tau: 0.1
+lambda_max: 100.0
+
+# Data Configurations
+data_dir: './data'
+dataset: 'cifar100'
+train_sampler: 'RandomSampler'
+num_classes: 100
+num_workers: 1
+imbalance_l: 10.0
+frac: 1.0
+imbalance_u: 10.0
+size: 32
+N1: 150
+M1: 300
+lt: false
+train_backbone: true
+mask: false
+cutmix: false
+puzzlemix: false
+vmix: false
+
+# multi-GPUs & Distributed Training
+world_size: 1
+rank: 0
+dist_url: 'tcp://127.0.0.1:10001'
+dist_backend: 'nccl'
+seed: 0
+gpu: null
+multiprocessing_distributed: false
+
+# wandb logging
+wandb_project: 'ICML-CIFAR100-IBRLU-10-10'
+wandb_entity: 'aaai-23'
+wandb_runid: 'min_recall_verify_seed-0'
+
+
+scheduler: 'cosine'

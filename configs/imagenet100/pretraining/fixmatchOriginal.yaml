@@ -1,0 +1,51 @@
+save_dir: './saved_models'
+save_name: 'Imagenet100_N1-433_M1-866_IBRL-10_IBRU-10_seed-0'
+resume: false 
+load_path: null
+overwrite: true
+
+epoch: 300
+num_train_iter: 1048576
+num_eval_iter: 2500
+batch_size: 256
+uratio: 2
+eval_batch_size: 256
+
+hard_label: true
+T: 0.5
+p_cutoff: 0.7
+ema_m: 0.999
+ulb_loss_ratio: 10.0
+LA: false
+
+lr: 0.4
+momentum: 0.9
+weight_decay: 0.0003
+amp: true
+scheduler: 'multistepLR'
+
+net: 'resnet50'
+net_from_name: true
+
+data_dir: './data/Imagenet100'
+dataset: 'imagenet100'
+train_sampler: 'RandomSampler'
+num_classes: 100
+num_workers: 1
+imbalance_l: 10
+imbalance_u: 10
+N1: 433
+M1: 866
+include_train: false
+
+world_size: 1
+rank: 0
+dist_url: 'tcp://127.0.0.1:10009'
+dist_backend: 'nccl'
+seed: 0
+gpu: null
+multiprocessing_distributed: true
+
+wandb_project: 'ICML-imagenet100-IBRLU-10-10'
+wandb_entity: 'aaai-23'
+wandb_runid: 'Imagenet100_N1-433_M1-866_IBRL-10_IBRU-10_seed-0'

@@ -1,0 +1,57 @@
+save_dir: './saved_models'
+save_name: 'CIFAR100_N1-150_M1-300_IBRL-10_IBRU-10-LA-seed0-rerun'
+resume: true
+load_path: './saved_models/CIFAR100_N1-150_M1-300_IBRL-10_IBRU-10-LA-seed0-rerun/model_best.pth'
+overwrite: true
+
+epoch: 1
+num_train_iter: 1048576
+num_eval_iter: 2500
+batch_size: 64
+uratio: 2
+eval_batch_size: 1024
+
+hard_label: true
+T: 0.5
+p_cutoff: 0.95
+ema_m: 0.999
+ulb_loss_ratio: 1.0
+LA: true
+
+lr: 0.03
+momentum: 0.9
+weight_decay: 0.0005
+amp: true
+
+net: 'WideResNet'
+net_from_name: false
+depth: 28
+widen_factor: 2
+leaky_slope: 0.1
+bn_momentum: 0.001
+dropout: 0.0
+
+data_dir: './data'
+dataset: 'cifar100'
+train_sampler: 'RandomSampler'
+num_classes: 100
+num_workers: 1
+imbalance_l: 10
+imbalance_u: 10
+N1: 150
+M1: 300
+include_train: false
+
+world_size: 1
+rank: 0
+dist_url: 'tcp://127.0.0.1:10009'
+dist_backend: 'nccl'
+seed: 0
+gpu: null
+multiprocessing_distributed: true
+
+wandb_project: 'ICML-CIFAR100-IBRLU-10-10'
+wandb_entity: 'aaai-23'
+wandb_runid: 'CIFAR10_N1-150_M1-300_IBRL-10_IBRU-10_LA_seed-0'
+
+scheduler: 'cosine'
